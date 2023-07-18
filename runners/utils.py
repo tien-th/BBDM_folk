@@ -4,6 +4,7 @@ import torch.nn as nn
 from PIL import Image
 from datetime import datetime
 from torchvision.utils import make_grid, save_image
+import numpy as np
 from Register import Registers
 from datasets.custom import CustomSingleDataset, CustomAlignedDataset, CustomInpaintingDataset
 
@@ -64,15 +65,16 @@ def get_dataset(data_config):
     return train_dataset, val_dataset, test_dataset
 
 
+
 @torch.no_grad()
-def save_single_image(image, save_path, file_name, to_normal=True):
+def save_single_image(image, save_path, file_name, max_pixel, to_normal=True):
     image = image.detach().clone()
     if to_normal:
         image = image.mul_(0.5).add_(0.5).clamp_(0, 1.)
-    image = image.mul_(255).add_(0.5).clamp_(0, 255).permute(1, 2, 0).to('cpu', torch.uint8).numpy()
-    im = Image.fromarray(image)
-    im.save(os.path.join(save_path, file_name))
+    image = image.mul_(max_pixel).add_(0.2).clamp_(0, max_pixel).permute(1, 2, 0).to('cpu').numpy()
 
+    print(os.path.join(save_path, file_name))
+    np.save(os.path.join(save_path, file_name), image)
 
 @torch.no_grad()
 def get_image_grid(batch, grid_size=4, to_normal=True):
