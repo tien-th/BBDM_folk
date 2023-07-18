@@ -1,8 +1,8 @@
 #train
-python3 main.py --config configs/ct2pet_7_1.yaml --train --sample_at_start --save_top --gpu_ids 3
+python3 main.py --config configs/LBBDM_7_17.yaml --train --sample_at_start --save_top --gpu_ids 3
 
 #test
-python3 main.py --config configs/ct2pet_7_1.yaml --sample_to_eval --gpu_ids 3
+# python3 main.py --config configs/ct2pet_7_1.yaml --sample_to_eval --gpu_ids 3
 
 #preprocess and evaluation
 ## rename

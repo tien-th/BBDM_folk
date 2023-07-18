@@ -3,7 +3,7 @@ data:
   dataset_name: '108_CT2PET_7_17'
   dataset_type: 'custom_aligned'
   dataset_config:
-    max_pixel_ori: 32767 # Pet 
+    max_pixel_ori: 10.4 # Pet 
     max_pixel_cond: 2047  # CT
     dataset_path: '/mnt/disk1/mbbank/tien/BBDM/108'
     image_size: 256
@@ -76,7 +76,7 @@ model:
     use_ema: True
   VQGAN: 
     params:
-      ckpt_path: vqgan_pretrained/model.ckpt
+      ckpt_path: /mnt/disk1/mbbank/tien/BBDM/vqgan_pretrained/model.ckpt
       ddconfig: 
         attn_resolutions: []
         ch: 128
