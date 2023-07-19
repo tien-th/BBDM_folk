@@ -1,8 +1,8 @@
-#train
-python3 main.py --config configs/LBBDM_7_17.yaml --train --sample_at_start --save_top --gpu_ids 3
+# train
+# python3 main.py --config configs/LBBDM_7_17.yaml --train --sample_at_start --save_top --gpu_ids 0
 
 #test
-# python3 main.py --config configs/ct2pet_7_1.yaml --sample_to_eval --gpu_ids 3
+python3 main.py --config configs/LBBDM_7_17.yaml --sample_to_eval --gpu_ids 3 --resume_model results/108_CT2PET_7_17/LBBDM-f4/checkpoint/last_model.pth --resume_optim results/108_CT2PET_7_17/LBBDM-f4/checkpoint/last_optim_sche.pth
 
 #preprocess and evaluation
 ## rename
