@@ -1,8 +1,8 @@
 # train
-python3 main.py --config configs/LBBDM_7_25.yaml --train --resume_model results/108_CT2PET_7_27/LBBDM-f4/checkpoint/last_model.pth --resume_optim /mnt/disk1/mbbank/tien/BBDM_folk/results/108_CT2PET_7_27/LBBDM-f4/checkpoint/last_optim_sche.pth --sample_at_start --save_top --gpu_ids 2
+# python3 main.py --config configs/LBBDM_7_25.yaml --train  --sample_at_start --save_top --gpu_ids 2
 
 #test
-# python3 main.py --config configs/LBBDM_7_21.yaml --sample_to_eval --gpu_ids 2 --resume_model results/108_CT2PET_7_17/LBBDM-f4/checkpoint/last_model.pth --resume_optim results/108_CT2PET_7_17/LBBDM-f4/checkpoint/last_optim_sche.pth
+python3 main.py --config configs/testKoMoNau.yaml --sample_to_eval --gpu_ids 2 --resume_model ckpt/top_model_epoch_124.pth  --resume_optim ckpt/top_optim_sche_epoch_124.pth
 
 #preprocess and evaluation
 ## rename

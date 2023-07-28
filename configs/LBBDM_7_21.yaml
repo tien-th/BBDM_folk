@@ -1,6 +1,6 @@
 
 data:
-  dataset_name: '108_CT2PET_7_17'
+  dataset_name: '108_CT2PET_7_21'
   dataset_type: 'custom_aligned'
   dataset_config:
     max_pixel_ori: 10.4 # Pet 
@@ -29,15 +29,15 @@ model:
       threshold: 0.0001
     optimizer: 
       beta1: 0.9
-      lr: 0.0001
+      lr: 0.00002
       optimizer: Adam
       weight_decay: 0.0
     params: 
       UNetParams:
         attention_resolutions: !!python/tuple
-        - 32
         - 16
         - 8
+        - 4
         channel_mult: !!python/tuple
         - 1
         - 4
@@ -109,7 +109,7 @@ testing:
   sample_num: 5
 training: 
   accumulate_grad_batches: 4
-  n_epochs: 300
+  n_epochs: 100
   n_steps: 200000
   sample_interval: 2
   save_interval: 2
