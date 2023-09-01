@@ -491,8 +491,8 @@ class UNetModel(nn.Module):
             assert num_heads != -1, 'Either num_heads or num_head_channels has to be set'
 
         self.image_size = image_size
-        self.in_channels = in_channels
-        self.model_channels = model_channels
+        self.in_channels = in_channels * 2
+        self.model_channels = model_channels * 2
         self.out_channels = out_channels
         self.num_res_blocks = num_res_blocks
         self.attention_resolutions = attention_resolutions
@@ -508,9 +508,9 @@ class UNetModel(nn.Module):
         self.predict_codebook_ids = n_embed is not None
         self.condition_key = condition_key
 
-        time_embed_dim = model_channels * 4
+        time_embed_dim = self.model_channels * 4
         self.time_embed = nn.Sequential(
-            linear(model_channels, time_embed_dim),
+            linear(self.model_channels, time_embed_dim),
             nn.SiLU(),
             linear(time_embed_dim, time_embed_dim),
         )
@@ -521,13 +521,13 @@ class UNetModel(nn.Module):
         self.input_blocks = nn.ModuleList(
             [
                 TimestepEmbedSequential(
-                    conv_nd(dims, in_channels, model_channels, 3, padding=1)
+                    conv_nd(dims, in_channels, self.model_channels, 3, padding=1)
                 )
             ]
         )
-        self._feature_size = model_channels
-        input_block_chans = [model_channels]
-        ch = model_channels
+        self._feature_size = self.model_channels
+        input_block_chans = [self.model_channels]
+        ch = self.model_channels
         ds = 1
         for level, mult in enumerate(channel_mult):
             for _ in range(num_res_blocks):
@@ -536,13 +536,13 @@ class UNetModel(nn.Module):
                         ch,
                         time_embed_dim,
                         dropout,
-                        out_channels=mult * model_channels,
+                        out_channels=mult * self.model_channels,
                         dims=dims,
                         use_checkpoint=use_checkpoint,
                         use_scale_shift_norm=use_scale_shift_norm,
                     )
                 ]
-                ch = mult * model_channels
+                ch = mult * self.model_channels
                 if ds in attention_resolutions:
                     if num_head_channels == -1:
                         dim_head = ch // num_heads
@@ -637,13 +637,13 @@ class UNetModel(nn.Module):
                         ch + ich,
                         time_embed_dim,
                         dropout,
-                        out_channels=model_channels * mult,
+                        out_channels=self.model_channels * mult,
                         dims=dims,
                         use_checkpoint=use_checkpoint,
                         use_scale_shift_norm=use_scale_shift_norm,
                     )
                 ]
-                ch = model_channels * mult
+                ch = self.model_channels * mult
                 if ds in attention_resolutions:
                     if num_head_channels == -1:
                         dim_head = ch // num_heads
@@ -687,12 +687,12 @@ class UNetModel(nn.Module):
         self.out = nn.Sequential(
             normalization(ch),
             nn.SiLU(),
-            zero_module(conv_nd(dims, model_channels, out_channels, 3, padding=1)),
+            zero_module(conv_nd(dims, self.model_channels, out_channels, 3, padding=1)),
         )
         if self.predict_codebook_ids:
             self.id_predictor = nn.Sequential(
             normalization(ch),
-            conv_nd(dims, model_channels, n_embed, 1),
+            conv_nd(dims, self.model_channels, n_embed, 1),
             #nn.LogSoftmax(dim=1)  # change to cross_entropy and produce non-normalized logits
         )
 
@@ -808,9 +808,9 @@ class EncoderUNetModel(nn.Module):
         self.num_head_channels = num_head_channels
         self.num_heads_upsample = num_heads_upsample
 
-        time_embed_dim = model_channels * 4
+        time_embed_dim = self.model_channels * 4
         self.time_embed = nn.Sequential(
-            linear(model_channels, time_embed_dim),
+            linear(self.model_channels, time_embed_dim),
             nn.SiLU(),
             linear(time_embed_dim, time_embed_dim),
         )
@@ -818,13 +818,13 @@ class EncoderUNetModel(nn.Module):
         self.input_blocks = nn.ModuleList(
             [
                 TimestepEmbedSequential(
-                    conv_nd(dims, in_channels, model_channels, 3, padding=1)
+                    conv_nd(dims, in_channels, self.model_channels, 3, padding=1)
                 )
             ]
         )
-        self._feature_size = model_channels
-        input_block_chans = [model_channels]
-        ch = model_channels
+        self._feature_size = self.model_channels
+        input_block_chans = [self.model_channels]
+        ch = self.model_channels
         ds = 1
         for level, mult in enumerate(channel_mult):
             for _ in range(num_res_blocks):
@@ -833,13 +833,13 @@ class EncoderUNetModel(nn.Module):
                         ch,
                         time_embed_dim,
                         dropout,
-                        out_channels=mult * model_channels,
+                        out_channels=mult * self.model_channels,
                         dims=dims,
                         use_checkpoint=use_checkpoint,
                         use_scale_shift_norm=use_scale_shift_norm,
                     )
                 ]
-                ch = mult * model_channels
+                ch = mult * self.model_channels
                 if ds in attention_resolutions:
                     layers.append(
                         AttentionBlock(
@@ -1019,16 +1019,14 @@ class ConfidenceNetwork(nn.Module):
     def __init__(self):
         super(ConfidenceNetwork, self).__init__()
 
-        self.conv1 = nn.Conv2d(35, 16, 3, 1, 1) #BottleneckBlock(35, 16)
-        #self.trans_block1 = TransitionBlock3(51, 8)
+        self.conv1 = nn.Conv2d(3, 16, 3, 1, 1) #BottleneckBlock(3, 16)
+        # self.trans_block1 = TransitionBlock3(16, 16)
         self.conv2 = BottleneckBlock(16, 16)
         self.trans_block2 = TransitionBlock3(32, 16)
         self.conv3 = BottleneckBlock(16, 16)
         self.trans_block3 = TransitionBlock3(32, 16)
-        self.conv_refin = nn.Conv2d(16, 16, 3, 1, 1)
+        self.conv_refine = nn.Conv2d(16, 3, 3, 1, 1)
         self.sig = nn.Sigmoid()
-        self.refine3 = nn.Conv2d(16, 3, kernel_size=3, stride=1, padding=1)
-        self.relu = nn.LeakyReLU(0.2, inplace=True)
 
     def forward(self, x):
         x1 = self.conv1(x)
@@ -1037,6 +1035,6 @@ class ConfidenceNetwork(nn.Module):
         x2 = self.trans_block2(x2)
         x3 = self.conv3(x2)
         x3 = self.trans_block3(x3)
-        conf = self.sig(self.refine3(x3))
+        conf = self.sig(self.conv_refine(x3))
 
         return conf
