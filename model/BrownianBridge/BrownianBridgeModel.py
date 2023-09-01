@@ -1,5 +1,5 @@
 import pdb
-
+import torchvision.transforms as T
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -36,7 +36,11 @@ class BrownianBridgeModel(nn.Module):
         self.image_size = model_params.UNetParams.image_size
         self.channels = model_params.UNetParams.in_channels
         self.condition_key = model_params.UNetParams.condition_key
-
+        
+        self.sel_attn_depth = model_params.UNetParams.sel_attn_depth
+        self.sel_attn_block = model_params.UNetParams.sel_attn_block
+        self.num_heads = model_params.UNetParams.num_heads
+        
         self.denoise_fn = UNetModel(**vars(model_params.UNetParams))
 
     def register_schedule(self):
@@ -109,7 +113,7 @@ class BrownianBridgeModel(nn.Module):
         noise = default(noise, lambda: torch.randn_like(x0))
 
         x_t, objective = self.q_sample(x0, y, t, noise)
-        objective_recon = self.denoise_fn(x_t, timesteps=t, context=context)
+        objective_recon, att = self.denoise_fn(x_t, timesteps=t, context=context)
 
         if self.loss_type == 'l1':
             recloss = (objective - objective_recon).abs().mean()
@@ -168,12 +172,57 @@ class BrownianBridgeModel(nn.Module):
             imgs.append(img)
         return imgs
 
+    def attention_masking(
+        self, x, y, t, attn_map, prev_noise, blur_sigma, model_kwargs=None,
+    ):
+        """
+        Apply the self-attention mask to produce bar{x_t}
+
+        :param x: the predicted x_0 [N x C x ...] tensor at time t.
+        :param t: a 1-D Tensor of timesteps.
+        :param attn_map: the attention map tensor at time t.
+        :param prev_noise: the previously predicted epsilon to inject
+            the same noise as x_t.
+        :param blur_sigma: a sigma of Gaussian blur.
+        :param model_kwargs: if not None, a dict of extra keyword arguments to
+            pass to the model. This can be used for conditioning.
+        :return: the bar{x_t}
+        """
+        B, C, H, W = x.shape
+        assert t.shape == (B,)
+        
+        if self.sel_attn_depth in [0, 1, 2] or self.sel_attn_block == "middle":
+            attn_res = 8
+        elif self.sel_attn_depth in [3, 4, 5]:
+            attn_res = 16
+        elif self.sel_attn_depth in [6, 7, 8]:
+            attn_res = 32
+        else:
+            raise ValueError("sel_attn_depth must be in [0, 1, 2, 3, 4, 5, 6, 7, 8]")
+        
+        # Generating attention mask
+        attn_mask = attn_map.reshape(B, self.num_heads, attn_res ** 2, attn_res ** 2).mean(1, keepdim=False).sum(1, keepdim=False) > 1.0
+        attn_mask = attn_mask.reshape(B, attn_res, attn_res).unsqueeze(1).repeat(1, 3, 1, 1).int().float()
+        attn_mask = F.interpolate(attn_mask, (H, W))
+
+        # Gaussian blur
+        transform = T.GaussianBlur(kernel_size=31, sigma=blur_sigma)
+        x_curr = transform(x)
+
+        # Apply attention masking
+        x_curr = x_curr * (attn_mask) + x * (1 - attn_mask)
+
+        # Re-inject the noise
+        x_curr, obj = self.q_sample(x_curr, y, t, noise=prev_noise)
+        
+        return x_curr
+    
     @torch.no_grad()
     def p_sample(self, x_t, y, context, i, clip_denoised=False):
         b, *_, device = *x_t.shape, x_t.device
         if self.steps[i] == 0:
             t = torch.full((x_t.shape[0],), self.steps[i], device=x_t.device, dtype=torch.long)
-            objective_recon = self.denoise_fn(x_t, timesteps=t, context=context)
+            objective_recon, att_maps = self.denoise_fn(x_t, timesteps=t, context=context)
             x0_recon = self.predict_x0_from_objective(x_t, y, t, objective_recon=objective_recon)
             if clip_denoised:
                 x0_recon.clamp_(-1., 1.)
@@ -182,11 +231,30 @@ class BrownianBridgeModel(nn.Module):
             t = torch.full((x_t.shape[0],), self.steps[i], device=x_t.device, dtype=torch.long)
             n_t = torch.full((x_t.shape[0],), self.steps[i+1], device=x_t.device, dtype=torch.long)
 
-            objective_recon = self.denoise_fn(x_t, timesteps=t, context=context)
+            objective_recon, att_maps = self.denoise_fn(x_t, timesteps=t, context=context)
             x0_recon = self.predict_x0_from_objective(x_t, y, t, objective_recon=objective_recon)
             if clip_denoised:
                 x0_recon.clamp_(-1., 1.)
-
+            
+            m_t = extract(self.m_t, t, x0_recon.shape)
+            var_t = extract(self.variance_t, t, x0_recon.shape)
+            prev_noise = (objective_recon - m_t * (y - x0_recon))/torch.sqrt(var_t)
+            
+            mask_blurred = self.attention_masking(
+                x=x0_recon,
+                y = y,
+                t=t,
+                attn_map=att_maps,
+                prev_noise=prev_noise,
+                blur_sigma=9.0,
+            )
+            
+            objective_recon1, att_maps1 = self.denoise_fn(mask_blurred, timesteps=t, context=context)
+            noise_hat = (objective_recon1 - m_t * (y - x0_recon))/torch.sqrt(var_t)
+            guided_noise = noise_hat + (1 + 1) * (prev_noise - noise_hat)
+            objective_recon1 = m_t * (y - x0_recon) + torch.sqrt(var_t) * guided_noise
+            x0_recon_guided = self.predict_x0_from_objective(x_t, y, t, objective_recon=objective_recon1)
+            
             m_t = extract(self.m_t, t, x_t.shape)
             m_nt = extract(self.m_t, n_t, x_t.shape)
             var_t = extract(self.variance_t, t, x_t.shape)
@@ -195,10 +263,10 @@ class BrownianBridgeModel(nn.Module):
             sigma_t = torch.sqrt(sigma2_t) * self.eta
 
             noise = torch.randn_like(x_t)
-            x_tminus_mean = (1. - m_nt) * x0_recon + m_nt * y + torch.sqrt((var_nt - sigma2_t) / var_t) * \
-                            (x_t - (1. - m_t) * x0_recon - m_t * y)
+            x_tminus_mean = (1. - m_nt) * x0_recon_guided + m_nt * y + torch.sqrt((var_nt - sigma2_t) / var_t) * \
+                            (x_t - (1. - m_t) * x0_recon_guided - m_t * y)
 
-            return x_tminus_mean + sigma_t * noise, x0_recon
+            return x_tminus_mean + sigma_t * noise, x0_recon_guided
 
     @torch.no_grad()
     def p_sample_loop(self, y, context=None, clip_denoised=True, sample_mid_step=False):
