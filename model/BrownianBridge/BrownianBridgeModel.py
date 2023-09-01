@@ -8,7 +8,7 @@ from tqdm.autonotebook import tqdm
 import numpy as np
 
 from model.utils import extract, default
-from model.BrownianBridge.base.modules.diffusionmodules.openaimodel import UNetModel
+from model.BrownianBridge.base.modules.diffusionmodules.openaimodel import UNetModel, ConfidenceNetwork
 from model.BrownianBridge.base.modules.encoders.modules import SpatialRescaler
 
 
@@ -38,6 +38,7 @@ class BrownianBridgeModel(nn.Module):
         self.condition_key = model_params.UNetParams.condition_key
 
         self.denoise_fn = UNetModel(**vars(model_params.UNetParams))
+        self.conf_net = ConfidenceNetwork()
 
     def register_schedule(self):
         T = self.num_timesteps
@@ -119,11 +120,27 @@ class BrownianBridgeModel(nn.Module):
             raise NotImplementedError()
 
         x0_recon = self.predict_x0_from_objective(x_t, y, t, objective_recon)
+        conf = self.conf_net(x0_recon)
+        xeff = conf * x0_recon + (1 - conf) * x0
+
+        lambda1 = 0.001
+        lambda2 = 0.1
+        sng = 1e-9
+        
+        tmp = -(1.0 / (h * w)) * torch.sum(torch.log(conf + sng))
+
+        if tmp < 0.25:
+            lambda2 = 0.09 * lambda2 * (np.exp(5.4 * tmp) - 0.98)
+
+        conf_loss = F.smooth_l1_loss(xeff, x0) + lambda2 * tmp
+
+        tot_loss = recloss + lambda1 * conf_loss
+
         log_dict = {
-            "loss": recloss,
+            "loss": tot_loss,
             "x0_recon": x0_recon
         }
-        return recloss, log_dict
+        return tot_loss, log_dict
 
     def q_sample(self, x0, y, t, noise=None):
         noise = default(noise, lambda: torch.randn_like(x0))
@@ -177,7 +194,10 @@ class BrownianBridgeModel(nn.Module):
             x0_recon = self.predict_x0_from_objective(x_t, y, t, objective_recon=objective_recon)
             if clip_denoised:
                 x0_recon.clamp_(-1., 1.)
-            return x0_recon, x0_recon
+
+            conf = self.conf_net(x0_recon)
+
+            return x0_recon, x0_recon, conf  
         else:
             t = torch.full((x_t.shape[0],), self.steps[i], device=x_t.device, dtype=torch.long)
             n_t = torch.full((x_t.shape[0],), self.steps[i+1], device=x_t.device, dtype=torch.long)
@@ -198,7 +218,9 @@ class BrownianBridgeModel(nn.Module):
             x_tminus_mean = (1. - m_nt) * x0_recon + m_nt * y + torch.sqrt((var_nt - sigma2_t) / var_t) * \
                             (x_t - (1. - m_t) * x0_recon - m_t * y)
 
-            return x_tminus_mean + sigma_t * noise, x0_recon
+            conf = self.conf_net(x0_recon)
+
+            return x_tminus_mean + sigma_t * noise, x0_recon, conf
 
     @torch.no_grad()
     def p_sample_loop(self, y, context=None, clip_denoised=True, sample_mid_step=False):
@@ -207,17 +229,31 @@ class BrownianBridgeModel(nn.Module):
         else:
             context = y if context is None else context
 
+        uncer_map = None
+
         if sample_mid_step:
             imgs, one_step_imgs = [y], []
             for i in tqdm(range(len(self.steps)), desc=f'sampling loop time step', total=len(self.steps)):
-                img, x0_recon = self.p_sample(x_t=imgs[-1], y=y, context=context, i=i, clip_denoised=clip_denoised)
+                if uncer_map == None:
+                    x_t = imgs[-1]
+                else:
+                    x_t = torch.cat([imgs[-1], uncer_map], 1)
+                img, x0_recon, conf = self.p_sample(x_t=x_t, y=y, context=context, i=i, clip_denoised=clip_denoised)
+                uncer_map = x0_recon * conf
                 imgs.append(img)
                 one_step_imgs.append(x0_recon)
+
             return imgs, one_step_imgs
         else:
             img = y
             for i in tqdm(range(len(self.steps)), desc=f'sampling loop time step', total=len(self.steps)):
-                img, _ = self.p_sample(x_t=img, y=y, context=context, i=i, clip_denoised=clip_denoised)
+                if uncer_map == None:
+                    x_t = img
+                else:
+                    x_t = torch.cat([img, uncer_map], 1)
+                img, x0_recon, conf = self.p_sample(x_t=x_t, y=y, context=context, i=i, clip_denoised=clip_denoised)
+                uncer_map = x0_recon * conf
+
             return img
 
     @torch.no_grad()

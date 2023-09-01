@@ -976,3 +976,67 @@ class EncoderUNetModel(nn.Module):
             h = h.type(x.dtype)
             return self.out(h)
 
+class BottleneckBlock(nn.Module):
+    def __init__(self, in_planes, out_planes, dropRate=0.0):
+        super(BottleneckBlock, self).__init__()
+        inter_planes = out_planes * 4
+        self.bn1 = nn.BatchNorm2d(in_planes)
+        self.relu = nn.ReLU(inplace=True)
+        self.conv1 = nn.Conv2d(in_planes, inter_planes, kernel_size=1, stride=1,
+                               padding=0, bias=False)
+        self.bn2 = nn.BatchNorm2d(inter_planes)
+        self.conv2 = nn.Conv2d(inter_planes, out_planes, kernel_size=3, stride=1,
+                               padding=1, bias=False)
+        self.droprate = dropRate
+
+    def forward(self, x):
+        out = self.conv1(self.relu(self.bn1(x)))
+        if self.droprate > 0:
+            out = F.dropout(out, p=self.droprate, inplace=False, training=self.training)
+        out = self.conv2(self.relu(self.bn2(out)))
+        if self.droprate > 0:
+            out = F.dropout(out, p=self.droprate, inplace=False, training=self.training)
+        
+        return th.cat([x, out], 1)
+
+class TransitionBlock3(nn.Module):
+    def __init__(self, in_planes, out_planes, dropRate=0.0):
+        super(TransitionBlock3, self).__init__()
+        self.bn1 = nn.BatchNorm2d(in_planes)
+        self.relu = nn.ReLU(inplace=True)
+        self.conv1 = nn.ConvTranspose2d(in_planes, out_planes, kernel_size=1, stride=1,
+                                        padding=0, bias=False)
+        self.droprate = dropRate
+
+    def forward(self, x):
+        out = self.conv1(self.relu(self.bn1(x)))
+        if self.droprate > 0:
+            out = F.dropout(out, p=self.droprate, inplace=False, training=self.training)
+
+        return out
+
+class ConfidenceNetwork(nn.Module):
+    def __init__(self):
+        super(ConfidenceNetwork, self).__init__()
+
+        self.conv1 = nn.Conv2d(35, 16, 3, 1, 1) #BottleneckBlock(35, 16)
+        #self.trans_block1 = TransitionBlock3(51, 8)
+        self.conv2 = BottleneckBlock(16, 16)
+        self.trans_block2 = TransitionBlock3(32, 16)
+        self.conv3 = BottleneckBlock(16, 16)
+        self.trans_block3 = TransitionBlock3(32, 16)
+        self.conv_refin = nn.Conv2d(16, 16, 3, 1, 1)
+        self.sig = nn.Sigmoid()
+        self.refine3 = nn.Conv2d(16, 3, kernel_size=3, stride=1, padding=1)
+        self.relu = nn.LeakyReLU(0.2, inplace=True)
+
+    def forward(self, x):
+        x1 = self.conv1(x)
+        #x1 = self.trans_block1(x1)
+        x2 = self.conv2(x1)
+        x2 = self.trans_block2(x2)
+        x3 = self.conv3(x2)
+        x3 = self.trans_block3(x3)
+        conf = self.sig(self.refine3(x3))
+
+        return conf
