@@ -57,8 +57,8 @@ model:
         resblock_updown: True
         use_scale_shift_norm: True
         use_spatial_transformer: False
-        sel_attn_depth: 2
-        sel_attn_block: output
+        # sel_attn_depth: 2
+        # sel_attn_block: output
       eta: 1.0
       loss_type: l1
       max_var: 1.0
