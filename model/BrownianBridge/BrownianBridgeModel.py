@@ -190,7 +190,6 @@ class BrownianBridgeModel(nn.Module):
         """
         B, C, H, W = x.shape
         assert t.shape == (B,)
-        
         if self.sel_attn_depth in [0, 1, 2] or self.sel_attn_block == "middle":
             attn_res = 8
         elif self.sel_attn_depth in [3, 4, 5]:
@@ -217,12 +216,65 @@ class BrownianBridgeModel(nn.Module):
         
         return x_curr
     
+    # @torch.no_grad()
+    # def p_sample(self, x_t, y, context, i, clip_denoised=False):
+    #     s = 0.2
+    #     print('check: ', s)
+    #     b, *_, device = *x_t.shape, x_t.device
+    #     if self.steps[i] == 0:
+    #         t = torch.full((x_t.shape[0],), self.steps[i], device=x_t.device, dtype=torch.long)
+    #         objective_recon, att_maps = self.denoise_fn(x_t, timesteps=t, context=context)
+    #         x0_recon = self.predict_x0_from_objective(x_t, y, t, objective_recon=objective_recon)
+    #         if clip_denoised:
+    #             x0_recon.clamp_(-1., 1.)
+    #         return x0_recon, x0_recon
+    #     else:
+    #         t = torch.full((x_t.shape[0],), self.steps[i], device=x_t.device, dtype=torch.long)
+    #         n_t = torch.full((x_t.shape[0],), self.steps[i+1], device=x_t.device, dtype=torch.long)
+
+    #         objective_recon, att_maps = self.denoise_fn(x_t, timesteps=t, context=context)
+    #         x0_recon = self.predict_x0_from_objective(x_t, y, t, objective_recon=objective_recon)
+    #         if clip_denoised:
+    #             x0_recon.clamp_(-1., 1.)
+            
+    #         m_t = extract(self.m_t, t, x0_recon.shape)
+    #         var_t = extract(self.variance_t, t, x0_recon.shape)
+    #         prev_noise = (objective_recon - m_t * (y - x0_recon))/torch.sqrt(var_t)
+            
+    #         mask_blurred = self.attention_masking(
+    #             x=x0_recon,
+    #             y = y,
+    #             t=t,
+    #             attn_map=att_maps,
+    #             prev_noise=prev_noise,
+    #             blur_sigma=9.0,
+    #         )
+            
+    #         objective_recon1, att_maps1 = self.denoise_fn(mask_blurred, timesteps=t, context=context)
+    #         noise_hat = (objective_recon1 - m_t * (y - x0_recon))/torch.sqrt(var_t)
+    #         guided_noise = noise_hat + (s + 1) * (prev_noise - noise_hat)
+    #         objective_recon1 = m_t * (y - x0_recon) + torch.sqrt(var_t) * guided_noise
+    #         x0_recon_guided = self.predict_x0_from_objective(x_t, y, t, objective_recon=objective_recon1)
+            
+    #         m_t = extract(self.m_t, t, x_t.shape)
+    #         m_nt = extract(self.m_t, n_t, x_t.shape)
+    #         var_t = extract(self.variance_t, t, x_t.shape)
+    #         var_nt = extract(self.variance_t, n_t, x_t.shape)
+    #         sigma2_t = (var_t - var_nt * (1. - m_t) ** 2 / (1. - m_nt) ** 2) * var_nt / var_t
+    #         sigma_t = torch.sqrt(sigma2_t) * self.eta
+
+    #         noise = torch.randn_like(x_t)
+    #         x_tminus_mean = (1. - m_nt) * x0_recon_guided + m_nt * y + torch.sqrt((var_nt - sigma2_t) / var_t) * \
+    #                         (x_t - (1. - m_t) * x0_recon_guided - m_t * y)
+
+    #         return x_tminus_mean + sigma_t * noise, x0_recon_guided
+
     @torch.no_grad()
     def p_sample(self, x_t, y, context, i, clip_denoised=False):
         b, *_, device = *x_t.shape, x_t.device
         if self.steps[i] == 0:
             t = torch.full((x_t.shape[0],), self.steps[i], device=x_t.device, dtype=torch.long)
-            objective_recon, att_maps = self.denoise_fn(x_t, timesteps=t, context=context)
+            objective_recon, __ = self.denoise_fn(x_t, timesteps=t, context=context)
             x0_recon = self.predict_x0_from_objective(x_t, y, t, objective_recon=objective_recon)
             if clip_denoised:
                 x0_recon.clamp_(-1., 1.)
@@ -231,30 +283,11 @@ class BrownianBridgeModel(nn.Module):
             t = torch.full((x_t.shape[0],), self.steps[i], device=x_t.device, dtype=torch.long)
             n_t = torch.full((x_t.shape[0],), self.steps[i+1], device=x_t.device, dtype=torch.long)
 
-            objective_recon, att_maps = self.denoise_fn(x_t, timesteps=t, context=context)
+            objective_recon, __ = self.denoise_fn(x_t, timesteps=t, context=context)
             x0_recon = self.predict_x0_from_objective(x_t, y, t, objective_recon=objective_recon)
             if clip_denoised:
                 x0_recon.clamp_(-1., 1.)
-            
-            m_t = extract(self.m_t, t, x0_recon.shape)
-            var_t = extract(self.variance_t, t, x0_recon.shape)
-            prev_noise = (objective_recon - m_t * (y - x0_recon))/torch.sqrt(var_t)
-            
-            mask_blurred = self.attention_masking(
-                x=x0_recon,
-                y = y,
-                t=t,
-                attn_map=att_maps,
-                prev_noise=prev_noise,
-                blur_sigma=9.0,
-            )
-            
-            objective_recon1, att_maps1 = self.denoise_fn(mask_blurred, timesteps=t, context=context)
-            noise_hat = (objective_recon1 - m_t * (y - x0_recon))/torch.sqrt(var_t)
-            guided_noise = noise_hat + (1 + 1) * (prev_noise - noise_hat)
-            objective_recon1 = m_t * (y - x0_recon) + torch.sqrt(var_t) * guided_noise
-            x0_recon_guided = self.predict_x0_from_objective(x_t, y, t, objective_recon=objective_recon1)
-            
+
             m_t = extract(self.m_t, t, x_t.shape)
             m_nt = extract(self.m_t, n_t, x_t.shape)
             var_t = extract(self.variance_t, t, x_t.shape)
@@ -263,10 +296,10 @@ class BrownianBridgeModel(nn.Module):
             sigma_t = torch.sqrt(sigma2_t) * self.eta
 
             noise = torch.randn_like(x_t)
-            x_tminus_mean = (1. - m_nt) * x0_recon_guided + m_nt * y + torch.sqrt((var_nt - sigma2_t) / var_t) * \
-                            (x_t - (1. - m_t) * x0_recon_guided - m_t * y)
+            x_tminus_mean = (1. - m_nt) * x0_recon + m_nt * y + torch.sqrt((var_nt - sigma2_t) / var_t) * \
+                            (x_t - (1. - m_t) * x0_recon - m_t * y)
 
-            return x_tminus_mean + sigma_t * noise, x0_recon_guided
+            return x_tminus_mean + sigma_t * noise, x0_recon
 
     @torch.no_grad()
     def p_sample_loop(self, y, context=None, clip_denoised=True, sample_mid_step=False):
