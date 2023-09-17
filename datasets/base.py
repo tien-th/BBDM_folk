@@ -46,7 +46,7 @@ class ImagePathDataset(Dataset):
             
             # if self.type == 'pet': 
             #     np_image = np.log1p(np_image)
-            np_image = np_image / float(self.max_pixel)
+            np_image = np_image / float(self.)
             
             image = Image.fromarray(np_image) 
             

@@ -79,24 +79,34 @@ model:
     use_ema: True
   VQGAN: 
     params:
-      ckpt_path: /mnt/disk1/mbbank/tien/BBDM/vqgan_pretrained/model_vqf4.ckpt
+      # ckpt_path: /mnt/disk1/mbbank/tien/BBDM/vqgan_pretrained/model_vqf4.ckpt
+      ckpt_path: /mnt/disk3/tiennh/taming-transformers/logs/2023-09-14T22-05-12_custom_vqgan/checkpoints/last.ckpt 
       ddconfig: 
         attn_resolutions: []
         ch: 128
         ch_mult: !!python/tuple
         - 1
+        - 1
+        - 2
         - 2
         - 4
         double_z: False
         dropout: 0.0
-        in_channels: 3
-        num_res_blocks: 1
-        out_ch: 3
+        in_channels: 1
+        num_res_blocks: 2
+        out_ch: 1
         resolution: 256
         z_channels: 3
       embed_dim: 3
       lossconfig: 
         target: torch.nn.Identity
+        # target: model.VQGAN.taming.modules.losses.vqperceptual.VQLPIPSWithDiscriminator
+        # params:
+        #   disc_conditional: False
+        #   disc_in_channels: 1
+        #   disc_start: 1000
+        #   disc_weight: 0.8
+        #   codebook_weight: 1.0
       n_embed: 8192
   latent_before_quant_conv: False
   # model_load_path: ./results/108_CT2PET/LBBDM-f4/checkpoint/last_model.pth

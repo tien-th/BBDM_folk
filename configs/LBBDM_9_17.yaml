@@ -1,6 +1,6 @@
 
 data:
-  dataset_name: '108_CT2PET_BBDMxSAG_s_1.6'
+  dataset_name: 'BBDM_09_17'
   dataset_type: 'custom_aligned'
   dataset_config:
     max_pixel_ori: 32767 # Pet 
@@ -48,17 +48,15 @@ model:
         conv_resample: True
         dims: 2
         image_size: 64
-        in_channels: 3
+        in_channels: 1
         model_channels: 128
         num_head_channels: 64
         num_heads: 8
         num_res_blocks: 2
-        out_channels: 3
+        out_channels: 1
         resblock_updown: True
         use_scale_shift_norm: True
         use_spatial_transformer: False
-        sel_attn_depth: 2
-        sel_attn_block: output
       eta: 1.0
       loss_type: l1
       max_var: 1.0
@@ -79,19 +77,22 @@ model:
     use_ema: True
   VQGAN: 
     params:
-      ckpt_path: /mnt/disk1/mbbank/tien/BBDM/vqgan_pretrained/model_vqf4.ckpt
+      # ckpt_path: /mnt/disk1/mbbank/tien/BBDM/vqgan_pretrained/model_vqf4.ckpt
+      ckpt_path: /mnt/disk3/tiennh/taming-transformers/logs/2023-09-14T22-05-12_custom_vqgan/checkpoints/last.ckpt 
       ddconfig: 
         attn_resolutions: []
         ch: 128
         ch_mult: !!python/tuple
         - 1
+        - 1
+        - 2
         - 2
         - 4
         double_z: False
         dropout: 0.0
-        in_channels: 3
-        num_res_blocks: 1
-        out_ch: 3
+        in_channels: 1
+        num_res_blocks: 2
+        out_ch: 1
         resolution: 256
         z_channels: 3
       embed_dim: 3

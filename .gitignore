@@ -4,3 +4,5 @@ CelebAMask-HQ.zip
 ckpt/
 koMoNau/
 108/
+test_vqgan.py
+test_vqgan.ipynb
