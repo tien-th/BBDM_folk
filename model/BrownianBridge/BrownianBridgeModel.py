@@ -1,5 +1,5 @@
 import pdb
-
+import itertools
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -38,7 +38,8 @@ class BrownianBridgeModel(nn.Module):
         self.condition_key = model_params.UNetParams.condition_key
 
         self.denoise_fn = UNetModel(**vars(model_params.UNetParams))
-        self.conf_net = ConfidenceNetwork()
+        self.conf_net = ConfidenceNetwork(self.channels, self.channels) 
+        self.uncer_maps = {} 
 
     def register_schedule(self):
         T = self.num_timesteps
@@ -81,10 +82,11 @@ class BrownianBridgeModel(nn.Module):
 
     def apply(self, weight_init):
         self.denoise_fn.apply(weight_init)
+        self.conf_net.apply(weight_init)
         return self
 
     def get_parameters(self):
-        return self.denoise_fn.parameters()
+        return itertools.chain(self.denoise_fn.parameters(), self.conf_net.parameters())
 
     def forward(self, x, y, context=None):
         if self.condition_key == "nocond":
@@ -109,20 +111,30 @@ class BrownianBridgeModel(nn.Module):
         b, c, h, w = x0.shape
         noise = default(noise, lambda: torch.randn_like(x0))
 
-        x_t, objective = self.q_sample(x0, y, t, noise)
-        objective_recon = self.denoise_fn(x_t, timesteps=t, context=context)
+        x_t, objective = self.q_sample(x0, y, t, noise)     
+        uncer_map = torch.zeros(x_t.shape)
+        
+        if t in self.uncer_maps:
+            uncer_map = self.uncer_maps[t]
+            
+        x_t_hat = torch.cat([x_t, uncer_map], 1) 
+        objective_recon = self.denoise_fn(x_t_hat, timesteps=t, context=context)
 
+        x0_recon = self.predict_x0_from_objective(x_t, y, t, objective_recon)
+        conf = self.conf_net(x0_recon)
+        xeff = conf * x0_recon + (1 - conf) * x0
+
+        self.uncer_maps[t + 1] = conf * x0_recon
+
+        # reconstruction loss
         if self.loss_type == 'l1':
             recloss = (objective - objective_recon).abs().mean()
         elif self.loss_type == 'l2':
             recloss = F.mse_loss(objective, objective_recon)
         else:
             raise NotImplementedError()
-
-        x0_recon = self.predict_x0_from_objective(x_t, y, t, objective_recon)
-        conf = self.conf_net(x0_recon)
-        xeff = conf * x0_recon + (1 - conf) * x0
-
+        
+        # confidence loss
         lambda1 = 0.001
         lambda2 = 0.1
         sng = 1e-9
@@ -137,6 +149,8 @@ class BrownianBridgeModel(nn.Module):
         tot_loss = recloss + lambda1 * conf_loss
 
         log_dict = {
+            "rec_loss": recloss,
+            "con_floss": conf_loss,
             "loss": tot_loss,
             "x0_recon": x0_recon
         }
@@ -186,12 +200,13 @@ class BrownianBridgeModel(nn.Module):
         return imgs
 
     @torch.no_grad()
-    def p_sample(self, x_t, y, context, i, clip_denoised=False):
+    def p_sample(self, x_t, y, uncer_map, context, i, clip_denoised=False):
         b, *_, device = *x_t.shape, x_t.device
         if self.steps[i] == 0:
             t = torch.full((x_t.shape[0],), self.steps[i], device=x_t.device, dtype=torch.long)
             objective_recon = self.denoise_fn(x_t, timesteps=t, context=context)
-            x0_recon = self.predict_x0_from_objective(x_t, y, t, objective_recon=objective_recon)
+            x_t_hat = torch.cat([x_t, uncer_map], 1) 
+            x0_recon = self.predict_x0_from_objective(x_t_hat, y, t, objective_recon=objective_recon)
             if clip_denoised:
                 x0_recon.clamp_(-1., 1.)
 
@@ -202,7 +217,8 @@ class BrownianBridgeModel(nn.Module):
             t = torch.full((x_t.shape[0],), self.steps[i], device=x_t.device, dtype=torch.long)
             n_t = torch.full((x_t.shape[0],), self.steps[i+1], device=x_t.device, dtype=torch.long)
 
-            objective_recon = self.denoise_fn(x_t, timesteps=t, context=context)
+            x_t_hat = torch.cat([x_t, uncer_map], 1) 
+            objective_recon = self.denoise_fn(x_t_hat, timesteps=t, context=context)
             x0_recon = self.predict_x0_from_objective(x_t, y, t, objective_recon=objective_recon)
             if clip_denoised:
                 x0_recon.clamp_(-1., 1.)
@@ -229,16 +245,12 @@ class BrownianBridgeModel(nn.Module):
         else:
             context = y if context is None else context
 
-        uncer_map = None
+        uncer_map = torch.zeros(y.shape)
 
         if sample_mid_step:
             imgs, one_step_imgs = [y], []
             for i in tqdm(range(len(self.steps)), desc=f'sampling loop time step', total=len(self.steps)):
-                if uncer_map == None:
-                    x_t = imgs[-1]
-                else:
-                    x_t = torch.cat([imgs[-1], uncer_map], 1)
-                img, x0_recon, conf = self.p_sample(x_t=x_t, y=y, context=context, i=i, clip_denoised=clip_denoised)
+                img, x0_recon, conf = self.p_sample(x_t=imgs[-1], y=y, uncer_map=uncer_map, context=context, i=i, clip_denoised=clip_denoised)
                 uncer_map = x0_recon * conf
                 imgs.append(img)
                 one_step_imgs.append(x0_recon)
@@ -247,11 +259,7 @@ class BrownianBridgeModel(nn.Module):
         else:
             img = y
             for i in tqdm(range(len(self.steps)), desc=f'sampling loop time step', total=len(self.steps)):
-                if uncer_map == None:
-                    x_t = img
-                else:
-                    x_t = torch.cat([img, uncer_map], 1)
-                img, x0_recon, conf = self.p_sample(x_t=x_t, y=y, context=context, i=i, clip_denoised=clip_denoised)
+                img, x0_recon, conf = self.p_sample(x_t=img, y=y, uncer_map=uncer_map, context=context, i=i, clip_denoised=clip_denoised)
                 uncer_map = x0_recon * conf
 
             return img

@@ -1016,16 +1016,16 @@ class TransitionBlock3(nn.Module):
         return out
 
 class ConfidenceNetwork(nn.Module):
-    def __init__(self):
+    def __init__(self, in_channels, out_channels):
         super(ConfidenceNetwork, self).__init__()
 
-        self.conv1 = nn.Conv2d(3, 16, 3, 1, 1) #BottleneckBlock(3, 16)
+        self.conv1 = nn.Conv2d(in_channels, 16, 3, 1, 1) #BottleneckBlock(3, 16)
         # self.trans_block1 = TransitionBlock3(16, 16)
         self.conv2 = BottleneckBlock(16, 16)
         self.trans_block2 = TransitionBlock3(32, 16)
         self.conv3 = BottleneckBlock(16, 16)
         self.trans_block3 = TransitionBlock3(32, 16)
-        self.conv_refine = nn.Conv2d(16, 3, 3, 1, 1)
+        self.conv_refine = nn.Conv2d(16, out_channels, 3, 1, 1)
         self.sig = nn.Sigmoid()
 
     def forward(self, x):
