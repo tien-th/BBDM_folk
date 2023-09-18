@@ -38,7 +38,7 @@ class BrownianBridgeModel(nn.Module):
         self.condition_key = model_params.UNetParams.condition_key
 
         self.denoise_fn = UNetModel(**vars(model_params.UNetParams))
-        self.conf_net = ConfidenceNetwork(self.channels, self.channels) 
+        self.conf_net = ConfidenceNetwork(**vars(model_params.ConfNetParams)) 
         self.uncer_maps = {} 
 
     def register_schedule(self):
@@ -109,15 +109,16 @@ class BrownianBridgeModel(nn.Module):
         :return: loss
         """
         b, c, h, w = x0.shape
+
         noise = default(noise, lambda: torch.randn_like(x0))
 
         x_t, objective = self.q_sample(x0, y, t, noise)     
-        uncer_map = torch.zeros(x_t.shape)
-        
+        uncer_map = torch.zeros(x_t.shape, device=x0.device)
+
         if t in self.uncer_maps:
             uncer_map = self.uncer_maps[t]
             
-        x_t_hat = torch.cat([x_t, uncer_map], 1) 
+        x_t_hat = torch.cat([x_t, uncer_map], 1)
         objective_recon = self.denoise_fn(x_t_hat, timesteps=t, context=context)
 
         x0_recon = self.predict_x0_from_objective(x_t, y, t, objective_recon)
@@ -204,9 +205,9 @@ class BrownianBridgeModel(nn.Module):
         b, *_, device = *x_t.shape, x_t.device
         if self.steps[i] == 0:
             t = torch.full((x_t.shape[0],), self.steps[i], device=x_t.device, dtype=torch.long)
-            objective_recon = self.denoise_fn(x_t, timesteps=t, context=context)
             x_t_hat = torch.cat([x_t, uncer_map], 1) 
-            x0_recon = self.predict_x0_from_objective(x_t_hat, y, t, objective_recon=objective_recon)
+            objective_recon = self.denoise_fn(x_t_hat, timesteps=t, context=context)
+            x0_recon = self.predict_x0_from_objective(x_t, y, t, objective_recon=objective_recon)
             if clip_denoised:
                 x0_recon.clamp_(-1., 1.)
 
@@ -245,7 +246,7 @@ class BrownianBridgeModel(nn.Module):
         else:
             context = y if context is None else context
 
-        uncer_map = torch.zeros(y.shape)
+        uncer_map = torch.zeros(y.shape, device=y.device)
 
         if sample_mid_step:
             imgs, one_step_imgs = [y], []

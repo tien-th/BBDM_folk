@@ -491,8 +491,8 @@ class UNetModel(nn.Module):
             assert num_heads != -1, 'Either num_heads or num_head_channels has to be set'
 
         self.image_size = image_size
-        self.in_channels = in_channels * 2
-        self.model_channels = model_channels * 2
+        self.in_channels = in_channels 
+        self.model_channels = model_channels 
         self.out_channels = out_channels
         self.num_res_blocks = num_res_blocks
         self.attention_resolutions = attention_resolutions

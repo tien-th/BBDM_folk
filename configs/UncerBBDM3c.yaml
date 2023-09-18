@@ -1,6 +1,6 @@
 
 data:
-  dataset_name: '108_CT2PET_UncerBBDM'
+  dataset_name: '108_CT2PET_UncerBBDM3c'
   dataset_type: 'custom_aligned'
   dataset_config:
     max_pixel_ori: 32767 # PET
@@ -34,8 +34,8 @@ model:
       weight_decay: 0.0
     params: 
       ConfNetParams:
-        in_channels: 1
-        out_channels: 1
+        in_channels: 3
+        out_channels: 3
       UNetParams:
         attention_resolutions: !!python/tuple
         - 32
@@ -51,12 +51,12 @@ model:
         conv_resample: True
         dims: 2
         image_size: 64
-        in_channels: 2
+        in_channels: 6
         model_channels: 128
         num_head_channels: 64
         num_heads: 8
         num_res_blocks: 2
-        out_channels: 1
+        out_channels: 3
         resblock_updown: True
         use_scale_shift_norm: True
         use_spatial_transformer: False
@@ -70,9 +70,9 @@ model:
       sample_type: linear
       skip_sample: True
   CondStageParams: 
-    in_channels: 1
+    in_channels: 3
     n_stages: 2
-    out_channels: 1
+    out_channels: 3
   EMA: 
     ema_decay: 0.995
     start_ema_step: 30000
@@ -80,8 +80,8 @@ model:
     use_ema: True
   VQGAN: 
     params:
-      # ckpt_path: /mnt/disk1/mbbank/tien/BBDM/vqgan_pretrained/model_vqf4.ckpt
-      ckpt_path: /mnt/disk3/tiennh/taming-transformers/logs/2023-09-18T20-41-26_custom_v4/checkpoints/last.ckpt
+      ckpt_path: /mnt/disk1/mbbank/tien/BBDM/vqgan_pretrained/model_vqf4.ckpt
+      # ckpt_path: /mnt/disk3/tiennh/taming-transformers/logs/2023-09-18T20-41-26_custom_v4/checkpoints/last.ckpt
       ddconfig: 
         attn_resolutions: []
         ch: 128
@@ -91,12 +91,12 @@ model:
         - 4
         double_z: False
         dropout: 0.0
-        in_channels: 1
+        in_channels: 3
         num_res_blocks: 1
-        out_ch: 1
+        out_ch: 3
         resolution: 256
         z_channels: 3
-      embed_dim: 1
+      embed_dim: 3
       lossconfig: 
         target: torch.nn.Identity
       n_embed: 8192

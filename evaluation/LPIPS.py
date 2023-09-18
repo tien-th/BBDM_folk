@@ -5,7 +5,7 @@ import torch
 from tqdm.autonotebook import tqdm
 
 loss_fn = lpips.LPIPS(net='alex', version='0.1').to(torch.device('cuda:0'))
-
+# loss_fn = lpips.LPIPS(net='alex', version='0.1').to(torch.device('cpu'))
 
 @torch.no_grad()
 def calc_LPIPS(data_dir, gt_dir, num_samples=1):
