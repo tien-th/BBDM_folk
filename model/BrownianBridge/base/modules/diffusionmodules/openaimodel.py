@@ -1036,5 +1036,6 @@ class ConfidenceNetwork(nn.Module):
         x3 = self.conv3(x2)
         x3 = self.trans_block3(x3)
         conf = self.sig(self.conv_refine(x3))
+        # conf = self.sig(self.conv_refine(x2))
 
         return conf
