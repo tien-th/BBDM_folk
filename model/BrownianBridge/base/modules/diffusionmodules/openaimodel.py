@@ -684,10 +684,16 @@ class UNetModel(nn.Module):
                 self.output_blocks.append(TimestepEmbedSequential(*layers))
                 self._feature_size += ch
 
-        self.out = nn.Sequential(
+        self.out1 = nn.Sequential(
             normalization(ch),
             nn.SiLU(),
             zero_module(conv_nd(dims, self.model_channels, out_channels, 3, padding=1)),
+        )
+        self.out2 = nn.Sequential(
+            normalization(ch),
+            nn.SiLU(),
+            conv_nd(dims, self.model_channels, out_channels, 3, padding=1),
+            nn.Sigmoid()
         )
         if self.predict_codebook_ids:
             self.id_predictor = nn.Sequential(
@@ -756,7 +762,7 @@ class UNetModel(nn.Module):
         if self.predict_codebook_ids:
             return self.id_predictor(h)
         else:
-            return self.out(h)
+            return self.out1(h), self.out2(h)
 
 
 class EncoderUNetModel(nn.Module):
@@ -1019,18 +1025,20 @@ class ConfidenceNetwork(nn.Module):
     def __init__(self, in_channels, out_channels):
         super(ConfidenceNetwork, self).__init__()
 
-        self.conv1 = nn.Conv2d(in_channels, 16, 3, 1, 1) #BottleneckBlock(3, 16)
-        # self.trans_block1 = TransitionBlock3(16, 16)
+        self.conv1 = nn.Conv2d(in_channels, 16, 3, 1, 1) 
+        # self.conv1 = BottleneckBlock(in_channels, 16)
+        # self.trans_block1 = TransitionBlock3(in_channels + 16, 16)
         self.conv2 = BottleneckBlock(16, 16)
         self.trans_block2 = TransitionBlock3(32, 16)
         self.conv3 = BottleneckBlock(16, 16)
         self.trans_block3 = TransitionBlock3(32, 16)
         self.conv_refine = nn.Conv2d(16, out_channels, 3, 1, 1)
         self.sig = nn.Sigmoid()
-
+        self.relu = nn.LeakyReLU(0.2, inplace=True)
+        
     def forward(self, x):
         x1 = self.conv1(x)
-        #x1 = self.trans_block1(x1)
+        # x1 = self.trans_block1(x1)
         x2 = self.conv2(x1)
         x2 = self.trans_block2(x2)
         x3 = self.conv3(x2)

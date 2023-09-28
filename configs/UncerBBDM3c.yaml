@@ -1,6 +1,6 @@
 
 data:
-  dataset_name: '108_CT2PET_UncerBBDM3c'
+  dataset_name: '108_CT2PET_UncerBBDM3c_'
   dataset_type: 'custom_aligned'
   dataset_config:
     max_pixel_ori: 32767 # PET

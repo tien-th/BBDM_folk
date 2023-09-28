@@ -38,7 +38,7 @@ class BrownianBridgeModel(nn.Module):
         self.condition_key = model_params.UNetParams.condition_key
 
         self.denoise_fn = UNetModel(**vars(model_params.UNetParams))
-        self.conf_net = ConfidenceNetwork(**vars(model_params.ConfNetParams)) 
+        # self.conf_net = ConfidenceNetwork(**vars(model_params.ConfNetParams)) 
         self.uncer_maps = {} 
 
     def register_schedule(self):
@@ -82,11 +82,12 @@ class BrownianBridgeModel(nn.Module):
 
     def apply(self, weight_init):
         self.denoise_fn.apply(weight_init)
-        self.conf_net.apply(weight_init)
+        # self.conf_net.apply(weight_init)
         return self
 
     def get_parameters(self):
-        return itertools.chain(self.denoise_fn.parameters(), self.conf_net.parameters())
+        return self.denoise_fn.parameters()
+        # return itertools.chain(self.denoise_fn.parameters(), self.conf_net.parameters())
 
     def forward(self, x, y, context=None):
         if self.condition_key == "nocond":
@@ -120,10 +121,11 @@ class BrownianBridgeModel(nn.Module):
                 uncer_map[i] = self.uncer_maps[t[i].cpu().item()]
             
         x_t_hat = torch.cat([x_t, uncer_map], 1)
-        objective_recon = self.denoise_fn(x_t_hat, timesteps=t, context=context)
+
+        objective_recon, conf = self.denoise_fn(x_t_hat, timesteps=t, context=context)
 
         x0_recon = self.predict_x0_from_objective(x_t, y, t, objective_recon)
-        conf = self.conf_net(torch.cat([x_t_hat, objective_recon], 1))
+        # conf = self.conf_net(torch.cat([x_t_hat, objective_recon], 1))
 
         objective_eff = conf * objective_recon + (1 - conf) * objective
 
@@ -209,12 +211,12 @@ class BrownianBridgeModel(nn.Module):
         if self.steps[i] == 0:
             t = torch.full((x_t.shape[0],), self.steps[i], device=x_t.device, dtype=torch.long)
             x_t_hat = torch.cat([x_t, uncer_map], 1) 
-            objective_recon = self.denoise_fn(x_t_hat, timesteps=t, context=context)
+            objective_recon, conf = self.denoise_fn(x_t_hat, timesteps=t, context=context)
             x0_recon = self.predict_x0_from_objective(x_t, y, t, objective_recon=objective_recon)
             if clip_denoised:
                 x0_recon.clamp_(-1., 1.)
 
-            conf = self.conf_net(torch.cat([x_t_hat, objective_recon], 1))
+            # conf = self.conf_net(torch.cat([x_t_hat, objective_recon], 1))
             n_uncer_map = conf * objective_recon
 
             return x0_recon, x0_recon, n_uncer_map
@@ -223,7 +225,7 @@ class BrownianBridgeModel(nn.Module):
             n_t = torch.full((x_t.shape[0],), self.steps[i+1], device=x_t.device, dtype=torch.long)
 
             x_t_hat = torch.cat([x_t, uncer_map], 1) 
-            objective_recon = self.denoise_fn(x_t_hat, timesteps=t, context=context)
+            objective_recon, conf = self.denoise_fn(x_t_hat, timesteps=t, context=context)
             x0_recon = self.predict_x0_from_objective(x_t, y, t, objective_recon=objective_recon)
             if clip_denoised:
                 x0_recon.clamp_(-1., 1.)
@@ -239,7 +241,7 @@ class BrownianBridgeModel(nn.Module):
             x_tminus_mean = (1. - m_nt) * x0_recon + m_nt * y + torch.sqrt((var_nt - sigma2_t) / var_t) * \
                             (x_t - (1. - m_t) * x0_recon - m_t * y)
 
-            conf = self.conf_net(torch.cat([x_t_hat, objective_recon], 1))
+            # conf = self.conf_net(torch.cat([x_t_hat, objective_recon], 1))
             n_uncer_map = conf * objective_recon
 
             return x_tminus_mean + sigma_t * noise, x0_recon, n_uncer_map
