@@ -125,38 +125,42 @@ class BrownianBridgeModel(nn.Module):
         objective_recon, conf = self.denoise_fn(x_t_hat, timesteps=t, context=context)
 
         x0_recon = self.predict_x0_from_objective(x_t, y, t, objective_recon)
-        # conf = self.conf_net(torch.cat([x_t_hat, objective_recon], 1))
+        # conf = self.conf_net(torch.cat([x_t_hat, x0_recon], 1))
 
-        objective_eff = conf * objective_recon + (1 - conf) * objective
+        x0_eff = conf * x0_recon + (1 - conf) * x0
 
-        n_uncer_map = conf * objective_recon
+        n_uncer_map = conf * x0_recon
 
         for i in range(b):
             self.uncer_maps[t[i].cpu().item() + 1] = n_uncer_map[i].detach()
 
         # reconstruction loss
         if self.loss_type == 'l1':
-            recloss = (objective - objective_eff).abs().mean()
+            recloss = (objective - objective_recon).abs().mean()
+            conf_loss1 = (x0 - x0_eff).abs().mean()
         elif self.loss_type == 'l2':
-            recloss = F.mse_loss(objective, objective_eff)
+            recloss = F.mse_loss(objective, objective_recon)
+            conf_loss1 = F.mse_loss(x0, x0_eff)
         else:
             raise NotImplementedError()
         
         # confidence loss
-        lambda1 = 0.7
+        lambda1 = 0.5
+        lambda2 = 0.8
         sng = 1e-9
         
-        conf_loss = -(1.0 / (h * w)) * torch.sum(torch.log(conf + sng))
+        conf_loss2 = -(1.0 / (h * w)) * torch.sum(torch.log(conf + sng))
         
         with torch.no_grad():
-            if conf_loss < 0.25:
-                lambda1 = 0.09 * lambda1 * (np.exp(5.4 * conf_loss.cpu().item()) - 0.98)
+            if conf_loss2 < 0.25:
+                lambda2 = 0.09 * lambda2 * (np.exp(5.4 * conf_loss2.cpu().item()) - 0.98)
 
-        tot_loss = (1 - lambda1) * recloss + lambda1 * conf_loss
+        tot_loss = recloss + lambda1 * conf_loss1 + lambda2 * conf_loss2
 
         log_dict = {
             "rec_loss": recloss,
-            "conf_loss": conf_loss,
+            "conf_loss1": conf_loss1,
+            "conf_loss2": conf_loss2,
             "loss": tot_loss,
             "x0_recon": x0_recon
         }
@@ -216,8 +220,8 @@ class BrownianBridgeModel(nn.Module):
             if clip_denoised:
                 x0_recon.clamp_(-1., 1.)
 
-            # conf = self.conf_net(torch.cat([x_t_hat, objective_recon], 1))
-            n_uncer_map = conf * objective_recon
+            # conf = self.conf_net(torch.cat([x_t_hat, x0_recon], 1))
+            n_uncer_map = conf * x0_recon
 
             return x0_recon, x0_recon, n_uncer_map
         else:
@@ -241,8 +245,8 @@ class BrownianBridgeModel(nn.Module):
             x_tminus_mean = (1. - m_nt) * x0_recon + m_nt * y + torch.sqrt((var_nt - sigma2_t) / var_t) * \
                             (x_t - (1. - m_t) * x0_recon - m_t * y)
 
-            # conf = self.conf_net(torch.cat([x_t_hat, objective_recon], 1))
-            n_uncer_map = conf * objective_recon
+            # conf = self.conf_net(torch.cat([x_t_hat, x0_recon], 1))
+            n_uncer_map = conf * x0_recon
 
             return x_tminus_mean + sigma_t * noise, x0_recon, n_uncer_map
 
