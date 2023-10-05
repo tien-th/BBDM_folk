@@ -79,27 +79,24 @@ model:
     params:
       # ckpt_path: /mnt/disk1/mbbank/tien/BBDM/vqgan_pretrained/model_vqf4.ckpt
       # ckpt_path: /mnt/disk3/tiennh/taming-transformers/logs/2023-09-18T20-41-26_custom_v4/checkpoints/last.ckpt
-      ckpt_path: /mnt/disk3/tiennh/taming-transformers/last_82.ckpt
-      ddconfig: 
-        attn_resolutions: []
-        ch: 128
-        ch_mult: !!python/tuple
-        - 1
-        # - 1
-        # - 2
-        - 2
-        - 4
+      # ckpt_path: /mnt/disk3/tiennh/taming-transformers/last_82.ckpt
+      embed_dim: 3
+      n_embed: 8192
+      ddconfig:
         double_z: False
-        dropout: 0.0
-        in_channels: 1
-        num_res_blocks: 1
-        out_ch: 1
-        resolution: 256
         z_channels: 3
-      embed_dim: 1
+        resolution: 256
+        in_channels: 1
+        out_ch: 1
+        ch: 128
+        ch_mult: [1,2,4]  #!!python/tuple
+    
+        num_res_blocks: 1
+        attn_resolutions: []
+        dropout: 0.0
       lossconfig: 
         target: torch.nn.Identity
-      n_embed: 8192
+
   latent_before_quant_conv: False
   # model_load_path: ./results/108_CT2PET/LBBDM-f4/checkpoint/last_model.pth
   model_name: LBBDM-f4

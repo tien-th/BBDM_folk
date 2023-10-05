@@ -91,8 +91,8 @@ class BrownianBridgeModel(nn.Module):
         else:
             context = y if context is None else context
         b, c, h, w, device, img_size, = *x.shape, x.device, self.image_size
-        print(f'input image size: {h}x{w}') 
-        print(f'true image size: {img_size}x{img_size}')
+        # print(f'input image size: {h}x{w}') 
+        # print(f'true image size: {img_size}x{img_size}')
         assert h == img_size and w == img_size, f'height and width of image must be {img_size}'
         t = torch.randint(0, self.num_timesteps, (b,), device=device).long()
         return self.p_losses(x, y, context, t)
@@ -111,7 +111,7 @@ class BrownianBridgeModel(nn.Module):
         noise = default(noise, lambda: torch.randn_like(x0))
 
         x_t, objective = self.q_sample(x0, y, t, noise)
-        print(f'x_t shape: {x0.shape}')    
+        # print(f'x_t shape: {x0.shape}')    
         objective_recon = self.denoise_fn(x_t, timesteps=t, context=context)
 
         if self.loss_type == 'l1':

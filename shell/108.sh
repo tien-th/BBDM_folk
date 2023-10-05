@@ -1,7 +1,8 @@
 # train
-python3 main.py --config configs/LBBDM_9_17.yaml --train --sample_at_start --save_top --gpu_ids 3
-
+# python3 main.py --config configs/LBBDMxSAGxVq13.yaml --train --sample_at_start --save_top --gpu_ids 3 --resume_model results/LBBDMxSAGxVq13/LBBDM-f4/checkpoint/last_model.pth --resume_optim results/LBBDMxSAGxVq13/LBBDM-f4/checkpoint/last_optim_sche.pth
 #test
+python3 main.py --config configs/LBBDMxSAGxVq13.yaml --sample_to_eval --gpu_ids 2 --resume_model results/LBBDMxSAGxVq13/LBBDM-f4/checkpoint/top_model_epoch_192.pth --resume_optim results/LBBDMxSAGxVq13/LBBDM-f4/checkpoint/top__optim_sche_epoch_192.pth 
+
 # python3 main.py --config configs/LBBDM_7_21.yaml --sample_to_eval --gpu_ids 2 --resume_model results/108_CT2PET_7_17/LBBDM-f4/checkpoint/last_model.pth --resume_optim results/108_CT2PET_7_17/LBBDM-f4/checkpoint/last_optim_sche.pth
 
 #preprocess and evaluation

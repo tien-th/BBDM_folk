@@ -1,6 +1,6 @@
 
 data:
-  dataset_name: 'BBDM_09_17'
+  dataset_name: 'LBBDM_1c'
   dataset_type: 'custom_aligned'
   dataset_config:
     max_pixel_ori: 32767 # Pet 
@@ -78,15 +78,12 @@ model:
   VQGAN: 
     params:
       # ckpt_path: /mnt/disk1/mbbank/tien/BBDM/vqgan_pretrained/model_vqf4.ckpt
-      # ckpt_path: /mnt/disk3/tiennh/taming-transformers/logs/2023-09-18T20-41-26_custom_v4/checkpoints/last.ckpt
-      ckpt_path: /mnt/disk3/tiennh/taming-transformers/last_82.ckpt
+      ckpt_path: /mnt/disk3/tiennh/taming-transformers/last_50.ckpt
       ddconfig: 
         attn_resolutions: []
         ch: 128
         ch_mult: !!python/tuple
         - 1
-        # - 1
-        # - 2
         - 2
         - 4
         double_z: False
