@@ -66,7 +66,7 @@ class ImagePathDataset(Dataset):
             if self.type == 'pet':
                 image = (image - 0.5) * 2.
         
-        image = image.repeat(3, 1, 1)  # 1 channel to 3 channel 
+        # image = image.repeat(3, 1, 1)  # 1 channel to 3 channel 
             # image.clamp_(-1., 1.)
 
         image_name = Path(img_path).stem

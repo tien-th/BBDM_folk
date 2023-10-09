@@ -6,6 +6,7 @@ import torch.nn.functional as F
 from functools import partial
 from tqdm.autonotebook import tqdm
 import numpy as np
+import random
 
 from model.utils import extract, default
 from model.BrownianBridge.base.modules.diffusionmodules.openaimodel import UNetModel, ConfidenceNetwork
@@ -39,7 +40,6 @@ class BrownianBridgeModel(nn.Module):
 
         self.denoise_fn = UNetModel(**vars(model_params.UNetParams))
         # self.conf_net = ConfidenceNetwork(**vars(model_params.ConfNetParams)) 
-        self.uncer_maps = {} 
 
     def register_schedule(self):
         T = self.num_timesteps
@@ -96,10 +96,21 @@ class BrownianBridgeModel(nn.Module):
             context = y if context is None else context
         b, c, h, w, device, img_size, = *x.shape, x.device, self.image_size
         assert h == img_size and w == img_size, f'height and width of image must be {img_size}'
-        t = torch.randint(0, self.num_timesteps, (b,), device=device).long()
-        return self.p_losses(x, y, context, t)
+    
+        losses = []
+        uncer_map = None
+        log_dicts = []
+        
+        for step in range(self.num_timesteps, -1, -1):
+            t = torch.randint(step, step, (b,), device=device).long()
+            
+            cur_loss, uncer_map, cur_log_dict = self.p_losses(x, y, context, t, uncer_map)
+            losses.append(cur_loss)
+            log_dicts.append(cur_log_dict)
+            
+        return losses, log_dicts
 
-    def p_losses(self, x0, y, context, t, noise=None):
+    def p_losses(self, x0, y, context, t, uncer_map=None, noise=None):
         """
         model loss
         :param x0: encoded x_ori, E(x_ori) = x0
@@ -114,14 +125,11 @@ class BrownianBridgeModel(nn.Module):
         noise = default(noise, lambda: torch.randn_like(x0))
 
         x_t, objective = self.q_sample(x0, y, t, noise)     
-        uncer_map = torch.zeros(x_t.shape, device=x_t.device)
         
-        for i in range(b):    
-            if t[i].cpu().item() in self.uncer_maps:
-                uncer_map[i] = self.uncer_maps[t[i].cpu().item()]
-            
+        if uncer_map == None:
+            uncer_map = torch.zeros(x_t.shape, device=x_t.device)
+        
         x_t_hat = torch.cat([x_t, uncer_map], 1)
-
         objective_recon, conf = self.denoise_fn(x_t_hat, timesteps=t, context=context)
 
         x0_recon = self.predict_x0_from_objective(x_t, y, t, objective_recon)
@@ -130,9 +138,6 @@ class BrownianBridgeModel(nn.Module):
         x0_eff = conf * x0_recon + (1 - conf) * x0
 
         n_uncer_map = conf * x0_recon
-
-        for i in range(b):
-            self.uncer_maps[t[i].cpu().item() + 1] = n_uncer_map[i].detach()
 
         # reconstruction loss
         if self.loss_type == 'l1':
@@ -164,7 +169,7 @@ class BrownianBridgeModel(nn.Module):
             "loss": tot_loss,
             "x0_recon": x0_recon
         }
-        return tot_loss, log_dict
+        return tot_loss, n_uncer_map, log_dict
 
     def q_sample(self, x0, y, t, noise=None):
         noise = default(noise, lambda: torch.randn_like(x0))

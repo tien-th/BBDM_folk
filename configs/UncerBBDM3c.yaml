@@ -101,12 +101,12 @@ model:
         target: torch.nn.Identity
       n_embed: 8192
   latent_before_quant_conv: False
-  model_load_path: ./results/108_CT2PET_UncerBBDM3c_v3/LBBDM-f4/checkpoint/last_model.pth
+  # model_load_path: ./results/108_CT2PET_UncerBBDM3c_v3/LBBDM-f4/checkpoint/latest_model_134.pth
   model_name: LBBDM-f4
   model_type: LBBDM
   normalize_latent: False
   only_load_latent_mean_std: False
-  optim_sche_load_path: ./results/108_CT2PET_UncerBBDM3c_v3/LBBDM-f4/checkpoint/last_optim_sche.pth
+  # optim_sche_load_path: ./results/108_CT2PET_UncerBBDM3c_v3/LBBDM-f4/checkpoint/latest_optim_sche_134.pth
 
 runner: BBDMRunner
 testing: 

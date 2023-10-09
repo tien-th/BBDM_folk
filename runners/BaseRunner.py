@@ -186,14 +186,14 @@ class BaseRunner(ABC):
     def validation_step(self, val_batch, epoch, step):
         self.apply_ema()
         self.net.eval()
-        loss = self.loss_fn(net=self.net,
+        losses = self.loss_fn(net=self.net,
                             batch=val_batch,
                             epoch=epoch,
                             step=step,
                             opt_idx=0,
                             stage='val_step')
         if len(self.optimizer) > 1:
-            loss = self.loss_fn(net=self.net,
+            losses = self.loss_fn(net=self.net,
                                 batch=val_batch,
                                 epoch=epoch,
                                 step=step,
@@ -211,24 +211,26 @@ class BaseRunner(ABC):
         loss_sum = 0.
         dloss_sum = 0.
         for val_batch in pbar:
-            loss = self.loss_fn(net=self.net,
+            losses = self.loss_fn(net=self.net,
                                 batch=val_batch,
                                 epoch=epoch,
                                 step=step,
                                 opt_idx=0,
                                 stage='val',
                                 write=False)
-            loss_sum += loss
+            for loss in losses:
+                loss_sum += loss
             if len(self.optimizer) > 1:
-                loss = self.loss_fn(net=self.net,
+                losses = self.loss_fn(net=self.net,
                                     batch=val_batch,
                                     epoch=epoch,
                                     step=step,
                                     opt_idx=1,
                                     stage='val',
                                     write=False)
-                dloss_sum += loss
-            step += 1
+                for loss in losses:
+                    dloss_sum += loss
+            step += len(losses)
         average_loss = loss_sum / step
         self.writer.add_scalar(f'val_epoch/loss', average_loss, epoch)
         if len(self.optimizer) > 1:
@@ -392,20 +394,20 @@ class BaseRunner(ABC):
                     losses = []
                     for i in range(len(self.optimizer)):
                         # pdb.set_trace()
-                        loss = self.loss_fn(net=self.net,
+                        cur_losses = self.loss_fn(net=self.net,
                                             batch=train_batch,
                                             epoch=epoch,
                                             step=self.global_step,
                                             opt_idx=i,
                                             stage='train')
-
-                        loss.backward()
-                        if self.global_step % accumulate_grad_batches == 0:
-                            self.optimizer[i].step()
-                            self.optimizer[i].zero_grad()
-                            if self.scheduler is not None:
-                                self.scheduler[i].step(loss)
-                        losses.append(loss.detach().mean())
+                        for loss in cur_losses:
+                            loss.backward()
+                            if self.global_step % accumulate_grad_batches == 0:
+                                self.optimizer[i].step()
+                                self.optimizer[i].zero_grad()
+                                if self.scheduler is not None:
+                                    self.scheduler[i].step(loss)
+                            losses.append(loss.detach().mean())
 
                     if self.use_ema and self.global_step % (self.update_ema_interval*accumulate_grad_batches) == 0:
                         self.step_ema()

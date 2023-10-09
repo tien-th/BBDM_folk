@@ -166,20 +166,23 @@ class BBDMRunner(DiffusionBaseRunner):
         x = x.to(self.config.training.device[0])
         x_cond = x_cond.to(self.config.training.device[0])
 
-        loss, additional_info = net(x, x_cond)
+        losses, additional_infos = net(x, x_cond)
+
         if write:
-            self.writer.add_scalar(f'loss/{stage}', loss, step)
-            if additional_info.__contains__('recloss_noise'):
-                self.writer.add_scalar(f'recloss_noise/{stage}', additional_info['recloss_noise'], step)
-            if additional_info.__contains__('recloss_xy'):
-                self.writer.add_scalar(f'recloss_xy/{stage}', additional_info['recloss_xy'], step)
-            if additional_info.__contains__('rec_loss'):
-                self.writer.add_scalar(f'rec_loss/{stage}', additional_info['rec_loss'], step)
-            if additional_info.__contains__('conf_loss1'):
-                self.writer.add_scalar(f'conf_loss1/{stage}', additional_info['conf_loss1'], step)
-            if additional_info.__contains__('conf_loss2'):
-                self.writer.add_scalar(f'conf_loss2/{stage}', additional_info['conf_loss2'], step)
-        return loss
+            for additional_info in additional_infos:
+                if additional_info.__contains__('loss'):
+                    self.writer.add_scalar(f'loss/{stage}', additional_info['loss'], step)
+                if additional_info.__contains__('recloss_noise'):
+                    self.writer.add_scalar(f'recloss_noise/{stage}', additional_info['recloss_noise'], step)
+                if additional_info.__contains__('recloss_xy'):
+                    self.writer.add_scalar(f'recloss_xy/{stage}', additional_info['recloss_xy'], step)
+                if additional_info.__contains__('rec_loss'):
+                    self.writer.add_scalar(f'rec_loss/{stage}', additional_info['rec_loss'], step)
+                if additional_info.__contains__('conf_loss1'):
+                    self.writer.add_scalar(f'conf_loss1/{stage}', additional_info['conf_loss1'], step)
+                if additional_info.__contains__('conf_loss2'):
+                    self.writer.add_scalar(f'conf_loss2/{stage}', additional_info['conf_loss2'], step)
+        return losses
 
     @torch.no_grad()
     def sample(self, net, batch, sample_path, stage='train'):

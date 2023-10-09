@@ -1,6 +1,6 @@
 
 data:
-  dataset_name: '108_CT2PET_UncerBBDM_'
+  dataset_name: '108_CT2PET_UncerBBDM_v3'
   dataset_type: 'custom_aligned'
   dataset_config:
     max_pixel_ori: 32767 # PET
@@ -51,12 +51,12 @@ model:
         conv_resample: True
         dims: 2
         image_size: 64
-        in_channels: 2
+        in_channels: 6
         model_channels: 128
         num_head_channels: 64
         num_heads: 8
         num_res_blocks: 2
-        out_channels: 1
+        out_channels: 3
         resblock_updown: True
         use_scale_shift_norm: True
         use_spatial_transformer: False
@@ -66,13 +66,13 @@ model:
       mt_type: linear
       num_timesteps: 1000
       objective: grad
-      sample_step: 200
+      sample_step: 500
       sample_type: linear
       skip_sample: True
   CondStageParams: 
-    in_channels: 1
+    in_channels: 3
     n_stages: 2
-    out_channels: 1
+    out_channels: 3
   EMA: 
     ema_decay: 0.995
     start_ema_step: 30000
@@ -80,8 +80,7 @@ model:
     use_ema: True
   VQGAN: 
     params:
-      # ckpt_path: /mnt/disk1/mbbank/tien/BBDM/vqgan_pretrained/model_vqf4.ckpt
-      ckpt_path: /mnt/disk3/tiennh/taming-transformers/last_82.ckpt
+      ckpt_path: /mnt/disk3/tiennh/taming-transformers/vq1_3_69.ckpt
       ddconfig: 
         attn_resolutions: []
         ch: 128
@@ -92,21 +91,21 @@ model:
         double_z: False
         dropout: 0.0
         in_channels: 1
-        num_res_blocks: 1
         out_ch: 1
+        num_res_blocks: 1
         resolution: 256
         z_channels: 3
-      embed_dim: 1
+      embed_dim: 3
       lossconfig: 
         target: torch.nn.Identity
       n_embed: 8192
   latent_before_quant_conv: False
-  model_load_path: ./results/108_CT2PET_UncerBBDM_/LBBDM-f4/checkpoint/last_model.pth
+  model_load_path: ./results/108_CT2PET_UncerBBDM_v3/LBBDM-f4/checkpoint/last_model.pth
   model_name: LBBDM-f4
   model_type: LBBDM
   normalize_latent: False
   only_load_latent_mean_std: False
-  optim_sche_load_path: ./results/108_CT2PET_UncerBBDM_/LBBDM-f4/checkpoint/last_optim_sche.pth
+  optim_sche_load_path: ./results/108_CT2PET_UncerBBDM_v3/LBBDM-f4/checkpoint/last_optim_sche.pth
 
 runner: BBDMRunner
 testing: 
