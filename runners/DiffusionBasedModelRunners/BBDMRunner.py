@@ -165,11 +165,25 @@ class BBDMRunner(DiffusionBaseRunner):
         (x, x_name), (x_cond, x_cond_name) = batch  # pet, ct 
         x = x.to(self.config.training.device[0])
         x_cond = x_cond.to(self.config.training.device[0])
-
-        losses, additional_infos = net(x, x_cond)
-
-        if write:
-            for additional_info in additional_infos:
+        
+        num_timesteps = self.config.model.BB.params.num_timesteps
+        accumulate_grad_batches = self.config.training.accumulate_grad_batches
+        
+        uncer_map = None
+        
+        for step in range(num_timesteps, num_timesteps-1, -1):
+            loss, n_uncer_map, additional_info = net(x, x_cond, step, uncer_map)
+            uncer_map = n_uncer_map.detach()
+            
+            if stage == 'train':
+                loss.backward()
+                if self.global_step % accumulate_grad_batches == 0:
+                    self.optimizer[opt_idx].step()
+                    self.optimizer[opt_idx].zero_grad()
+                    if self.scheduler is not None:
+                        self.scheduler[opt_idx].step(loss)
+            
+            if write:
                 if additional_info.__contains__('loss'):
                     self.writer.add_scalar(f'loss/{stage}', additional_info['loss'], step)
                 if additional_info.__contains__('recloss_noise'):
@@ -182,7 +196,8 @@ class BBDMRunner(DiffusionBaseRunner):
                     self.writer.add_scalar(f'conf_loss1/{stage}', additional_info['conf_loss1'], step)
                 if additional_info.__contains__('conf_loss2'):
                     self.writer.add_scalar(f'conf_loss2/{stage}', additional_info['conf_loss2'], step)
-        return losses
+                    
+        return loss
 
     @torch.no_grad()
     def sample(self, net, batch, sample_path, stage='train'):

@@ -89,28 +89,19 @@ class BrownianBridgeModel(nn.Module):
         return self.denoise_fn.parameters()
         # return itertools.chain(self.denoise_fn.parameters(), self.conf_net.parameters())
 
-    def forward(self, x, y, context=None):
+    def forward(self, x, y, t, uncer_map, context=None):
         if self.condition_key == "nocond":
             context = None
         else:
             context = y if context is None else context
         b, c, h, w, device, img_size, = *x.shape, x.device, self.image_size
         assert h == img_size and w == img_size, f'height and width of image must be {img_size}'
-    
-        losses = []
-        uncer_map = None
-        log_dicts = []
-        
-        for step in range(self.num_timesteps, -1, -1):
-            t = torch.randint(step, step, (b,), device=device).long()
-            
-            cur_loss, uncer_map, cur_log_dict = self.p_losses(x, y, context, t, uncer_map)
-            losses.append(cur_loss)
-            log_dicts.append(cur_log_dict)
-            
-        return losses, log_dicts
+        t = torch.randint(t - 1, t, (b,), device=device).long()
+        # t = torch.full((b,), t, device=device, dtype=torch.long)
+        # print(t)
+        return self.p_losses(x, y, context, t, uncer_map)
 
-    def p_losses(self, x0, y, context, t, uncer_map=None, noise=None):
+    def p_losses(self, x0, y, context, t, uncer_map, noise=None):
         """
         model loss
         :param x0: encoded x_ori, E(x_ori) = x0
@@ -124,10 +115,10 @@ class BrownianBridgeModel(nn.Module):
 
         noise = default(noise, lambda: torch.randn_like(x0))
 
-        x_t, objective = self.q_sample(x0, y, t, noise)     
+        x_t, objective = self.q_sample(x0, y, t, noise)    
         
         if uncer_map == None:
-            uncer_map = torch.zeros(x_t.shape, device=x_t.device)
+            uncer_map = torch.zeros(x_t.shape, device=x_t.device) 
         
         x_t_hat = torch.cat([x_t, uncer_map], 1)
         objective_recon, conf = self.denoise_fn(x_t_hat, timesteps=t, context=context)

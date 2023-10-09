@@ -1,6 +1,6 @@
 
 data:
-  dataset_name: '108_CT2PET_UncerBBDM_v3'
+  dataset_name: '108_CT2PET_UncerBBDM_v4'
   dataset_type: 'custom_aligned'
   dataset_config:
     max_pixel_ori: 32767 # PET
@@ -66,7 +66,7 @@ model:
       mt_type: linear
       num_timesteps: 1000
       objective: grad
-      sample_step: 500
+      sample_step: 200
       sample_type: linear
       skip_sample: True
   CondStageParams: 
@@ -100,12 +100,12 @@ model:
         target: torch.nn.Identity
       n_embed: 8192
   latent_before_quant_conv: False
-  model_load_path: ./results/108_CT2PET_UncerBBDM_v3/LBBDM-f4/checkpoint/last_model.pth
+  # model_load_path: ./results/108_CT2PET_UncerBBDM_v3/LBBDM-f4/checkpoint/last_model.pth
   model_name: LBBDM-f4
   model_type: LBBDM
   normalize_latent: False
   only_load_latent_mean_std: False
-  optim_sche_load_path: ./results/108_CT2PET_UncerBBDM_v3/LBBDM-f4/checkpoint/last_optim_sche.pth
+  # optim_sche_load_path: ./results/108_CT2PET_UncerBBDM_v3/LBBDM-f4/checkpoint/last_optim_sche.pth
 
 runner: BBDMRunner
 testing: 
