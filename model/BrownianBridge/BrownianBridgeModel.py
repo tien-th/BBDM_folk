@@ -142,7 +142,7 @@ class BrownianBridgeModel(nn.Module):
         
         with torch.no_grad():
             if conf_loss < 0.25:
-                lambda2 = 0.09 * lambda2 * (np.exp(5.4 * conf_loss.cpu().item()) - 0.98)
+                lambda1 = 0.09 * lambda1 * (np.exp(5.4 * conf_loss.cpu().item()) - 0.98)
 
         tot_loss = recloss + lambda1 * conf_loss
 
