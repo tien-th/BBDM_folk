@@ -89,19 +89,17 @@ class BrownianBridgeModel(nn.Module):
         return self.denoise_fn.parameters()
         # return itertools.chain(self.denoise_fn.parameters(), self.conf_net.parameters())
 
-    def forward(self, x, y, t, uncer_map, context=None):
+    def forward(self, x, y, t, uncer_map=None, context=None):
         if self.condition_key == "nocond":
             context = None
         else:
             context = y if context is None else context
         b, c, h, w, device, img_size, = *x.shape, x.device, self.image_size
         assert h == img_size and w == img_size, f'height and width of image must be {img_size}'
-        t = torch.randint(t - 1, t, (b,), device=device).long()
-        # t = torch.full((b,), t, device=device, dtype=torch.long)
-        # print(t)
+        t = torch.full((b,), t, device=device, dtype=torch.long)
         return self.p_losses(x, y, context, t, uncer_map)
 
-    def p_losses(self, x0, y, context, t, uncer_map, noise=None):
+    def p_losses(self, x0, y, context, t, uncer_map=None, noise=None):
         """
         model loss
         :param x0: encoded x_ori, E(x_ori) = x0

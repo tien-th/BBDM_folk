@@ -66,7 +66,7 @@ model:
       mt_type: linear
       num_timesteps: 1000
       objective: grad
-      sample_step: 200
+      sample_step: 1000
       sample_type: linear
       skip_sample: True
   CondStageParams: 
@@ -116,5 +116,8 @@ training:
   n_epochs: 200
   n_steps: 200000
   sample_interval: 2
+  sample_interval_per_step: 2000
   save_interval: 2
+  save_interval_per_step: 2000
   validation_interval: 2
+  validation_interval_per_step: 2000

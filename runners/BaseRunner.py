@@ -229,6 +229,8 @@ class BaseRunner(ABC):
                                     write=False)
                 dloss_sum += loss
             step += 1
+            if step == 2:
+                break
         average_loss = loss_sum / step
         self.writer.add_scalar(f'val_epoch/loss', average_loss, epoch)
         if len(self.optimizer) > 1:
@@ -384,11 +386,10 @@ class BaseRunner(ABC):
 
                 pbar = tqdm(train_loader, total=len(train_loader), smoothing=0.01)
                 self.global_epoch = epoch
-                start_time = time.time()
                 for train_batch in pbar:
-                    self.global_step += 1
+                    # self.global_step += 1
                     self.net.train()
-
+                    start_time = time.time()
                     losses = []
                     for i in range(len(self.optimizer)):
                         # pdb.set_trace()
@@ -429,7 +430,8 @@ class BaseRunner(ABC):
                             val_batch = next(iter(val_loader))
                             self.validation_step(val_batch=val_batch, epoch=epoch, step=self.global_step)
 
-                        if self.global_step % int(self.config.training.sample_interval * epoch_length) == 0:
+                        # if self.global_step % int(self.config.training.sample_interval * epoch_length) == 0:
+                        if (self.global_step + 1) % self.config.training.sample_interval_per_step == 0:
                             # val_batch = next(iter(val_loader))
                             # self.validation_step(val_batch=val_batch, epoch=epoch, step=self.global_step)
 
@@ -439,89 +441,112 @@ class BaseRunner(ABC):
                                 self.sample_step(val_batch=val_batch, train_batch=train_batch)
                                 torch.cuda.empty_cache()
 
-                end_time = time.time()
-                elapsed_rounded = int(round((end_time-start_time)))
-                print("training time: " + str(datetime.timedelta(seconds=elapsed_rounded)))
+                    end_time = time.time()
+                    elapsed_rounded = int(round((end_time-start_time)))
+                    print("training per batch time: " + str(datetime.timedelta(seconds=elapsed_rounded)))
 
-                # validation
-                if (epoch + 1) % self.config.training.validation_interval == 0 or (
-                        epoch + 1) == self.config.training.n_epochs:
-                    if not self.config.training.use_DDP or \
-                            (self.config.training.use_DDP and self.config.training.local_rank) == 0:
-                        with torch.no_grad():
-                            print("validating epoch...")
-                            average_loss = self.validation_epoch(val_loader, epoch)
-                            torch.cuda.empty_cache()
-                            print("validating epoch success")
+                    # validation
+                    # if (epoch + 1) % self.config.training.validation_interval == 0 or (
+                    if (self.global_step + 1) % self.config.training.validation_interval_per_step == 0 or (
+                            epoch + 1) == self.config.training.n_epochs:
+                        if not self.config.training.use_DDP or \
+                                (self.config.training.use_DDP and self.config.training.local_rank) == 0:
+                            with torch.no_grad():
+                                print("validating...")
+                                average_loss = self.validation_epoch(val_loader, epoch)
+                                torch.cuda.empty_cache()
+                                print("validating success")
+                
+                    # save checkpoint
+                    # if (epoch + 1) % self.config.training.save_interval == 0 or \
+                    if (self.global_step + 1) % self.config.training.save_interval_per_step == 0 or \
+                            (epoch + 1) == self.config.training.n_epochs or \
+                            self.global_step > self.config.training.n_steps:
+                        if not self.config.training.use_DDP or \
+                                (self.config.training.use_DDP and self.config.training.local_rank) == 0:
+                            with torch.no_grad():
+                                print("saving latest checkpoint...")
+                                self.on_save_checkpoint(self.net, train_loader, val_loader, epoch, self.global_step)
+                                model_states, optimizer_scheduler_states = self.get_checkpoint_states(stage='epoch_end')
 
-                # save checkpoint
-                if (epoch + 1) % self.config.training.save_interval == 0 or \
-                        (epoch + 1) == self.config.training.n_epochs or \
-                        self.global_step > self.config.training.n_steps:
-                    if not self.config.training.use_DDP or \
-                            (self.config.training.use_DDP and self.config.training.local_rank) == 0:
-                        with torch.no_grad():
-                            print("saving latest checkpoint...")
-                            self.on_save_checkpoint(self.net, train_loader, val_loader, epoch, self.global_step)
-                            model_states, optimizer_scheduler_states = self.get_checkpoint_states(stage='epoch_end')
+                                # save latest checkpoint
+                                # temp = 0
+                                # while temp < epoch + 1:
+                                #     remove_file(os.path.join(self.config.result.ckpt_path, f'latest_model_{temp}.pth'))
+                                #     remove_file(
+                                #         os.path.join(self.config.result.ckpt_path, f'latest_optim_sche_{temp}.pth'))
+                                #     temp += 1
+                                # torch.save(model_states,
+                                #            os.path.join(self.config.result.ckpt_path,
+                                #                         f'latest_model_{epoch + 1}.pth'))
+                                # torch.save(optimizer_scheduler_states,
+                                #            os.path.join(self.config.result.ckpt_path,
+                                #                         f'latest_optim_sche_{epoch + 1}.pth'))
+                                # torch.save(model_states,
+                                #            os.path.join(self.config.result.ckpt_path,
+                                #                         f'last_model.pth'))
+                                # torch.save(optimizer_scheduler_states,
+                                #            os.path.join(self.config.result.ckpt_path,
+                                #                         f'last_optim_sche.pth'))
+                                temp = 0
+                                while temp < self.global_step + 1:
+                                    remove_file(os.path.join(self.config.result.ckpt_path, f'latest_model_{temp}.pth'))
+                                    remove_file(
+                                        os.path.join(self.config.result.ckpt_path, f'latest_optim_sche_{temp}.pth'))
+                                    temp += self.config.training.save_interval_per_step
+                                torch.save(model_states,
+                                        os.path.join(self.config.result.ckpt_path,
+                                                        f'latest_model_{self.global_step + 1}.pth'))
+                                torch.save(optimizer_scheduler_states,
+                                        os.path.join(self.config.result.ckpt_path,
+                                                        f'latest_optim_sche_{self.global_step + 1}.pth'))
+                                torch.save(model_states,
+                                        os.path.join(self.config.result.ckpt_path,
+                                                        f'last_model.pth'))
+                                torch.save(optimizer_scheduler_states,
+                                        os.path.join(self.config.result.ckpt_path,
+                                                        f'last_optim_sche.pth'))
 
-                            # save latest checkpoint
-                            temp = 0
-                            while temp < epoch + 1:
-                                remove_file(os.path.join(self.config.result.ckpt_path, f'latest_model_{temp}.pth'))
-                                remove_file(
-                                    os.path.join(self.config.result.ckpt_path, f'latest_optim_sche_{temp}.pth'))
-                                temp += 1
-                            torch.save(model_states,
-                                       os.path.join(self.config.result.ckpt_path,
-                                                    f'latest_model_{epoch + 1}.pth'))
-                            torch.save(optimizer_scheduler_states,
-                                       os.path.join(self.config.result.ckpt_path,
-                                                    f'latest_optim_sche_{epoch + 1}.pth'))
-                            torch.save(model_states,
-                                       os.path.join(self.config.result.ckpt_path,
-                                                    f'last_model.pth'))
-                            torch.save(optimizer_scheduler_states,
-                                       os.path.join(self.config.result.ckpt_path,
-                                                    f'last_optim_sche.pth'))
+                                # save top_k checkpoints
+                                # model_ckpt_name = f'top_model_epoch_{epoch + 1}.pth'
+                                # optim_sche_ckpt_name = f'top_optim_sche_epoch_{epoch + 1}.pth'
+                                model_ckpt_name = f'top_model_epoch_{self.global_step + 1}.pth'
+                                optim_sche_ckpt_name = f'top_optim_sche_epoch_{self.global_step + 1}.pth'
 
-                            # save top_k checkpoints
-                            model_ckpt_name = f'top_model_epoch_{epoch + 1}.pth'
-                            optim_sche_ckpt_name = f'top_optim_sche_epoch_{epoch + 1}.pth'
-
-                            if self.config.args.save_top:
-                                print("save top model start...")
-                                top_key = 'top'
-                                if top_key not in self.topk_checkpoints:
-                                    print('top key not in topk_checkpoints')
-                                    self.topk_checkpoints[top_key] = {"loss": average_loss,
-                                                                      'model_ckpt_name': model_ckpt_name,
-                                                                      'optim_sche_ckpt_name': optim_sche_ckpt_name}
-
-                                    print(f"saving top checkpoint: average_loss={average_loss} epoch={epoch + 1}")
-                                    torch.save(model_states,
-                                               os.path.join(self.config.result.ckpt_path, model_ckpt_name))
-                                    torch.save(optimizer_scheduler_states,
-                                               os.path.join(self.config.result.ckpt_path, optim_sche_ckpt_name))
-                                else:
-                                    if average_loss < self.topk_checkpoints[top_key]["loss"]:
-                                        print("remove " + self.topk_checkpoints[top_key]["model_ckpt_name"])
-                                        remove_file(os.path.join(self.config.result.ckpt_path,
-                                                                 self.topk_checkpoints[top_key]['model_ckpt_name']))
-                                        remove_file(os.path.join(self.config.result.ckpt_path,
-                                                                 self.topk_checkpoints[top_key]['optim_sche_ckpt_name']))
-
-                                        print(
-                                            f"saving top checkpoint: average_loss={average_loss} epoch={epoch + 1}")
-
+                                if self.config.args.save_top:
+                                    print("save top model start...")
+                                    top_key = 'top'
+                                    if top_key not in self.topk_checkpoints:
+                                        print('top key not in topk_checkpoints')
                                         self.topk_checkpoints[top_key] = {"loss": average_loss,
-                                                                          'model_ckpt_name': model_ckpt_name,
-                                                                          'optim_sche_ckpt_name': optim_sche_ckpt_name}
+                                                                        'model_ckpt_name': model_ckpt_name,
+                                                                        'optim_sche_ckpt_name': optim_sche_ckpt_name}
 
+                                        # print(f"saving top checkpoint: average_loss={average_loss} epoch={epoch + 1}")
+                                        print(f"saving top checkpoint: average_loss={average_loss} epoch={self.global_step + 1}")
                                         torch.save(model_states,
-                                                   os.path.join(self.config.result.ckpt_path, model_ckpt_name))
+                                                os.path.join(self.config.result.ckpt_path, model_ckpt_name))
                                         torch.save(optimizer_scheduler_states,
-                                                   os.path.join(self.config.result.ckpt_path, optim_sche_ckpt_name))
+                                                os.path.join(self.config.result.ckpt_path, optim_sche_ckpt_name))
+                                    else:
+                                        if average_loss < self.topk_checkpoints[top_key]["loss"]:
+                                            print("remove " + self.topk_checkpoints[top_key]["model_ckpt_name"])
+                                            remove_file(os.path.join(self.config.result.ckpt_path,
+                                                                    self.topk_checkpoints[top_key]['model_ckpt_name']))
+                                            remove_file(os.path.join(self.config.result.ckpt_path,
+                                                                    self.topk_checkpoints[top_key]['optim_sche_ckpt_name']))
+
+                                            print(
+                                                # f"saving top checkpoint: average_loss={average_loss} epoch={epoch + 1}")
+                                                f"saving top checkpoint: average_loss={average_loss} step={self.global_step + 1}")
+                                            self.topk_checkpoints[top_key] = {"loss": average_loss,
+                                                                            'model_ckpt_name': model_ckpt_name,
+                                                                            'optim_sche_ckpt_name': optim_sche_ckpt_name}
+
+                                            torch.save(model_states,
+                                                    os.path.join(self.config.result.ckpt_path, model_ckpt_name))
+                                            torch.save(optimizer_scheduler_states,
+                                                    os.path.join(self.config.result.ckpt_path, optim_sche_ckpt_name))
         except BaseException as e:
             if not self.config.training.use_DDP or (self.config.training.use_DDP and self.config.training.local_rank) == 0:
                 print("exception save model start....")

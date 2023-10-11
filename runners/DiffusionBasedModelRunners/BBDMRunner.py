@@ -171,11 +171,12 @@ class BBDMRunner(DiffusionBaseRunner):
         
         uncer_map = None
         
-        for step in range(num_timesteps, num_timesteps-1, -1):
-            loss, n_uncer_map, additional_info = net(x, x_cond, step, uncer_map)
+        for timestep in range(num_timesteps - 1, -1, -1):
+            loss, n_uncer_map, additional_info = net(x, x_cond, timestep, uncer_map)
             uncer_map = n_uncer_map.detach()
             
             if stage == 'train':
+                self.global_step += 1
                 loss.backward()
                 if self.global_step % accumulate_grad_batches == 0:
                     self.optimizer[opt_idx].step()
@@ -183,6 +184,21 @@ class BBDMRunner(DiffusionBaseRunner):
                     if self.scheduler is not None:
                         self.scheduler[opt_idx].step(loss)
             
+                if write:
+                    if additional_info.__contains__('loss'):
+                        self.writer.add_scalar(f'loss/{stage}', additional_info['loss'], self.global_step)
+                    if additional_info.__contains__('recloss_noise'):
+                        self.writer.add_scalar(f'recloss_noise/{stage}', additional_info['recloss_noise'], self.global_step)
+                    if additional_info.__contains__('recloss_xy'):
+                        self.writer.add_scalar(f'recloss_xy/{stage}', additional_info['recloss_xy'], self.global_step)
+                    if additional_info.__contains__('rec_loss'):
+                        self.writer.add_scalar(f'rec_loss/{stage}', additional_info['rec_loss'], self.global_step)
+                    if additional_info.__contains__('conf_loss1'):
+                        self.writer.add_scalar(f'conf_loss1/{stage}', additional_info['conf_loss1'], self.global_step)
+                    if additional_info.__contains__('conf_loss2'):
+                        self.writer.add_scalar(f'conf_loss2/{stage}', additional_info['conf_loss2'], self.global_step)
+        
+        if stage != 'train':
             if write:
                 if additional_info.__contains__('loss'):
                     self.writer.add_scalar(f'loss/{stage}', additional_info['loss'], step)
@@ -196,7 +212,7 @@ class BBDMRunner(DiffusionBaseRunner):
                     self.writer.add_scalar(f'conf_loss1/{stage}', additional_info['conf_loss1'], step)
                 if additional_info.__contains__('conf_loss2'):
                     self.writer.add_scalar(f'conf_loss2/{stage}', additional_info['conf_loss2'], step)
-                    
+                
         return loss
 
     @torch.no_grad()
