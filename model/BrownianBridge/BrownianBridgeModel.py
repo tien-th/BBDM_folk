@@ -200,7 +200,7 @@ class BrownianBridgeModel(nn.Module):
             raise ValueError("sel_attn_depth must be in [0, 1, 2, 3, 4, 5, 6, 7, 8]")
         
         # Generating attention mask
-        attn_mask = attn_map.reshape(B, self.num_heads, attn_res ** 2, attn_res ** 2).mean(1, keepdim=False).sum(1, keepdim=False) > 1.0
+        attn_mask = attn_map.reshape(B, self.num_heads, attn_res ** 2, attn_res ** 2).mean(1, keepdim=False).sum(1, keepdim=False) > 0.5 # 1.0
         attn_mask = attn_mask.reshape(B, attn_res, attn_res).unsqueeze(1).repeat(1, 3, 1, 1).int().float()
         attn_mask = F.interpolate(attn_mask, (H, W))
 
@@ -218,7 +218,7 @@ class BrownianBridgeModel(nn.Module):
     
     @torch.no_grad()
     def p_sample(self, x_t, y, context, i, clip_denoised=False):
-        s = 1.6
+        s = 0.3
         # print('check: ', s)
         b, *_, device = *x_t.shape, x_t.device
         if self.steps[i] == 0:
@@ -247,7 +247,7 @@ class BrownianBridgeModel(nn.Module):
                 t=t,
                 attn_map=att_maps,
                 prev_noise=prev_noise,
-                blur_sigma=9.0,
+                blur_sigma= 9.0
             )
             
             objective_recon1, att_maps1 = self.denoise_fn(mask_blurred, timesteps=t, context=context)
