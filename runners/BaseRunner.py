@@ -337,34 +337,34 @@ class BaseRunner(ABC):
             test_sampler = torch.utils.data.distributed.DistributedSampler(test_dataset)
             train_loader = DataLoader(train_dataset,
                                       batch_size=self.config.data.train.batch_size,
-                                      num_workers=8,
+                                      num_workers=16,
                                       drop_last=True,
                                       sampler=train_sampler)
             val_loader = DataLoader(val_dataset,
                                     batch_size=self.config.data.val.batch_size,
-                                    num_workers=8,
+                                    num_workers=16,
                                     drop_last=True,
                                     sampler=val_sampler)
             test_loader = DataLoader(test_dataset,
                                      batch_size=self.config.data.test.batch_size,
-                                     num_workers=8,
+                                     num_workers=16,
                                      drop_last=True,
                                      sampler=test_sampler)
         else:
             train_loader = DataLoader(train_dataset,
                                       batch_size=self.config.data.train.batch_size,
                                       shuffle=self.config.data.train.shuffle,
-                                      num_workers=8,
+                                      num_workers=16,
                                       drop_last=True)
             val_loader = DataLoader(val_dataset,
                                     batch_size=self.config.data.val.batch_size,
                                     shuffle=self.config.data.val.shuffle,
-                                    num_workers=8,
+                                    num_workers=16,
                                     drop_last=True)
             test_loader = DataLoader(test_dataset,
                                      batch_size=self.config.data.test.batch_size,
                                      shuffle=False,
-                                     num_workers=8,
+                                     num_workers=16,
                                      drop_last=True)
 
         epoch_length = len(train_loader)
@@ -553,14 +553,14 @@ class BaseRunner(ABC):
             test_loader = DataLoader(test_dataset,
                                      batch_size=self.config.data.test.batch_size,
                                      shuffle=False,
-                                     num_workers=1,
+                                     num_workers=16,
                                      drop_last=True,
                                      sampler=test_sampler)
         else:
             test_loader = DataLoader(test_dataset,
                                      batch_size=self.config.data.test.batch_size,
                                      shuffle=False,
-                                     num_workers=1,
+                                     num_workers=16,
                                      drop_last=True)
 
         if self.use_ema:

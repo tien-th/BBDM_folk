@@ -1,23 +1,23 @@
 
 data:
-  dataset_name: 'UncerBBDM_1Unet'
+  dataset_name: 'UncerBBDM_1Unet_10k'
   dataset_type: 'custom_aligned'
   dataset_config:
     max_pixel_ori: 32767 # Pet 
     max_pixel_cond: 2047  # CT
-    dataset_path: '/mnt/disk1/mbbank/tien/BBDM/108'
+    dataset_path: '/workdir/carrot/splited_data_10k'
     image_size: 256
     channels: 1
     to_normal: True 
     flip: False
   train:
-    batch_size: 8
+    batch_size: 16
     shuffle: True
   val:
-    batch_size: 8
+    batch_size: 16
     shuffle: True
   test:
-    batch_size: 8
+    batch_size: 16
     # shuffle: False
 model: 
   BB: 
@@ -29,7 +29,7 @@ model:
       threshold: 0.0001
     optimizer: 
       beta1: 0.9
-      lr: 0.0001
+      lr: 5.0e-05
       optimizer: Adam
       weight_decay: 0.0
     params: 
@@ -57,8 +57,6 @@ model:
         resblock_updown: True
         use_scale_shift_norm: True
         use_spatial_transformer: False
-        # sel_attn_depth: 2
-        # sel_attn_block: output
       eta: 1.0
       loss_type: l1
       max_var: 1.0
@@ -79,7 +77,7 @@ model:
     use_ema: True
   VQGAN: 
     params:
-      ckpt_path: /mnt/disk3/tiennh/taming-transformers/vq1_3_69.ckpt
+      ckpt_path: /workdir/carrot/vqgan/vq1_3_69.ckpt
       ddconfig: 
         attn_resolutions: []
         ch: 128
@@ -90,8 +88,9 @@ model:
         double_z: False
         dropout: 0.0
         in_channels: 1
-        num_res_blocks: 1
         out_ch: 1
+        num_res_blocks: 1
+        
         resolution: 256
         z_channels: 3
       embed_dim: 3
@@ -99,12 +98,12 @@ model:
         target: torch.nn.Identity
       n_embed: 8192
   latent_before_quant_conv: False
-  # model_load_path: ./results/108_CT2PET/LBBDM-f4/checkpoint/last_model.pth
+  model_load_path: /workdir/carrot/pretrained_unets/UncerBBDM_1Unet_epoch_194.pth
   model_name: LBBDM-f4
   model_type: LBBDM
   normalize_latent: False
   only_load_latent_mean_std: False
-  # optim_sche_load_path: ./results/108_CT2PET/LBBDM-f4/checkpoint/last_optim_sche.pth
+  # optim_sche_load_path: ./results/UncerBBDM_1Unet/LBBDM-f4/checkpoint/top_optim_sche_epoch_46.pth
 
 runner: BBDMRunner
 testing: 
@@ -112,7 +111,7 @@ testing:
   sample_num: 1
 training: 
   accumulate_grad_batches: 4
-  n_epochs: 200
+  n_epochs: 400
   n_steps: 200000
   sample_interval: 2
   save_interval: 2
