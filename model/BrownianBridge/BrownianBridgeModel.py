@@ -135,14 +135,14 @@ class BrownianBridgeModel(nn.Module):
             raise NotImplementedError()
         
         # confidence loss
-        lambda1 = 0.9
+        lambda1 = 0.8
         sng = 1e-9
         
         conf_loss = -(1.0 / (h * w)) * torch.sum(torch.log(conf + sng))
         
-        # with torch.no_grad():
-        #     if conf_loss < 0.25:
-        #         lambda1 = 0.09 * lambda1 * (np.exp(5.4 * conf_loss.cpu().item()) - 0.98)
+        with torch.no_grad():
+            if conf_loss < 0.25:
+                lambda1 = 0.09 * lambda1 * (np.exp(5.4 * conf_loss.cpu().item()) - 0.98)
 
         tot_loss = recloss + lambda1 * conf_loss
 

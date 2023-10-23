@@ -1,6 +1,6 @@
 
 data:
-  dataset_name: 'UncerBBDM_1Unet_10k'
+  dataset_name: 'UncerBBDM_1Unet_10k_t1'
   dataset_type: 'custom_aligned'
   dataset_config:
     max_pixel_ori: 32767 # Pet 
@@ -29,7 +29,7 @@ model:
       threshold: 0.0001
     optimizer: 
       beta1: 0.9
-      lr: 5.0e-05
+      lr: 0.0001
       optimizer: Adam
       weight_decay: 0.0
     params: 
@@ -103,7 +103,7 @@ model:
   model_type: LBBDM
   normalize_latent: False
   only_load_latent_mean_std: False
-  # optim_sche_load_path: ./results/UncerBBDM_1Unet/LBBDM-f4/checkpoint/top_optim_sche_epoch_46.pth
+  optim_sche_load_path: /workdir/carrot/pretrained_unets/UncerBBDM_1Unet_optim_sche_epoch_194.pth
 
 runner: BBDMRunner
 testing: 
