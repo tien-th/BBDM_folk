@@ -87,7 +87,7 @@ class BBDMRunner(DiffusionBaseRunner):
         train_loader = DataLoader(train_dataset,
                                   batch_size=self.config.data.train.batch_size,
                                   shuffle=True,
-                                  num_workers=8,
+                                  num_workers=16,
                                   drop_last=True)
 
         total_ori_mean = None
