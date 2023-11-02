@@ -1,23 +1,23 @@
 
 data:
-  dataset_name: 'UncerBBDM_1Unet_10k_t1'
+  dataset_name: 'UncerBBDM_1Unet_15k_v2'
   dataset_type: 'custom_aligned'
   dataset_config:
     max_pixel_ori: 32767 # Pet 
-    max_pixel_cond: 2047  # CT
-    dataset_path: '/workdir/carrot/splited_data_10k'
+    max_pixel_cond: 2047 # CT
+    dataset_path: '/workdir/carrot/splited_data_15k'
     image_size: 256
     channels: 1
     to_normal: True 
     flip: False
   train:
-    batch_size: 16
+    batch_size: 32
     shuffle: True
   val:
-    batch_size: 16
+    batch_size: 32
     shuffle: True
   test:
-    batch_size: 16
+    batch_size: 32
     # shuffle: False
 model: 
   BB: 
@@ -48,7 +48,7 @@ model:
         conv_resample: True
         dims: 2
         image_size: 64
-        in_channels: 6
+        in_channels: 3
         model_channels: 128
         num_head_channels: 64
         num_heads: 8
@@ -58,7 +58,7 @@ model:
         use_scale_shift_norm: True
         use_spatial_transformer: False
       eta: 1.0
-      loss_type: l1
+      loss_type: ggd
       max_var: 1.0
       mt_type: linear
       num_timesteps: 1000
@@ -98,12 +98,12 @@ model:
         target: torch.nn.Identity
       n_embed: 8192
   latent_before_quant_conv: False
-  model_load_path: /workdir/carrot/pretrained_unets/UncerBBDM_1Unet_epoch_194.pth
+  # model_load_path: ./results/UncerBBDM_1Unet_10k_v2/LBBDM-f4/checkpoint/top_model_epoch_84.pth
   model_name: LBBDM-f4
   model_type: LBBDM
   normalize_latent: False
   only_load_latent_mean_std: False
-  optim_sche_load_path: /workdir/carrot/pretrained_unets/UncerBBDM_1Unet_optim_sche_epoch_194.pth
+  # optim_sche_load_path: ./results/UncerBBDM_1Unet_10k_v2/LBBDM-f4/checkpoint/top_optim_sche_epoch_84.pth
 
 runner: BBDMRunner
 testing: 
@@ -111,7 +111,7 @@ testing:
   sample_num: 1
 training: 
   accumulate_grad_batches: 4
-  n_epochs: 400
+  n_epochs: 200
   n_steps: 200000
   sample_interval: 2
   save_interval: 2

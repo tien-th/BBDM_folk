@@ -8,7 +8,7 @@ from tqdm.autonotebook import tqdm
 import numpy as np
 
 from model.utils import extract, default
-from model.BrownianBridge.base.modules.diffusionmodules.openaimodel import UNetModel, ConfidenceNetwork
+from model.BrownianBridge.base.modules.diffusionmodules.openaimodel import UNetModel
 from model.BrownianBridge.base.modules.encoders.modules import SpatialRescaler
 
 
@@ -38,7 +38,6 @@ class BrownianBridgeModel(nn.Module):
         self.condition_key = model_params.UNetParams.condition_key
 
         self.denoise_fn = UNetModel(**vars(model_params.UNetParams))
-        # self.conf_net = ConfidenceNetwork(**vars(model_params.ConfNetParams)) 
 
     def register_schedule(self):
         T = self.num_timesteps
@@ -81,12 +80,10 @@ class BrownianBridgeModel(nn.Module):
 
     def apply(self, weight_init):
         self.denoise_fn.apply(weight_init)
-        # self.conf_net.apply(weight_init)
         return self
 
     def get_parameters(self):
         return self.denoise_fn.parameters()
-        # return itertools.chain(self.denoise_fn.parameters(), self.conf_net.parameters())
 
     def forward(self, x, y, context=None):
         if self.condition_key == "nocond":
@@ -113,46 +110,56 @@ class BrownianBridgeModel(nn.Module):
         noise = default(noise, lambda: torch.randn_like(x0))
 
         x_t, objective = self.q_sample(x0, y, t, noise)     
-        uncer_map = torch.zeros(x_t.shape, device=x_t.device)
+        # uncer_map = torch.zeros(x_t.shape, device=x_t.device)
             
-        x_t_hat = torch.cat([x_t, uncer_map], 1)
+        # x_t_hat = torch.cat([x_t, uncer_map], 1)
 
-        objective_recon, conf = self.denoise_fn(x_t_hat, timesteps=t, context=context)
+        objective_recon, objective_alpha, objective_beta = self.denoise_fn(x_t, timesteps=t, context=context)
 
         x0_recon = self.predict_x0_from_objective(x_t, y, t, objective_recon)
-        # conf = self.conf_net(torch.cat([x_t_hat, objective_recon], 1))
-
-        objective_eff = conf * objective_recon + (1 - conf) * objective
-
-        n_uncer_map = conf * objective_recon
 
         # reconstruction loss
         if self.loss_type == 'l1':
-            recloss = (objective - objective_eff).abs().mean()
+            recloss = (objective - objective_recon).abs().mean()
         elif self.loss_type == 'l2':
-            recloss = F.mse_loss(objective, objective_eff)
+            recloss = F.mse_loss(objective, objective_recon)
+        elif self.loss_type == 'ggd':
+            alpha_eps, beta_eps = 1e-5, 1e-1
+
+            objective_alpha = objective_alpha + alpha_eps
+            objective_beta = objective_beta + beta_eps 
+            
+            factor = objective_alpha
+            
+            resi = torch.abs(objective - objective_recon)
+            # resi = (torch.log((resi * factor).clamp(min=1e-4, max=5)) * objective_beta).clamp(min=-1e-4, max=5)
+            resi = (resi * factor * objective_beta).clamp(min=1e-6, max=50)
+            
+            log_alpha = torch.log(objective_alpha)
+            log_beta = torch.log(objective_beta)
+            lgamma_beta = torch.lgamma(torch.pow(objective_beta, -1))
+
+            if torch.sum(log_alpha != log_alpha) > 0:
+                print('log_1alpha has nan')
+                print(lgamma_beta.min(), lgamma_beta.max(), log_beta.min(), log_beta.max())
+            if torch.sum(lgamma_beta != lgamma_beta) > 0:
+                print('lgamma_beta has nan')
+            if torch.sum(log_beta != log_beta) > 0:
+                print('log_beta has nan')
+            
+            recloss = resi - log_alpha + lgamma_beta - log_beta
+            recloss = torch.mean(recloss)
+
+            lambda1, lambda2 = 1, 0.0001
+            recloss = lambda1 * (objective - objective_recon).abs().mean() + lambda2 * recloss 
         else:
             raise NotImplementedError()
-        
-        # confidence loss
-        lambda1 = 0.8
-        sng = 1e-9
-        
-        conf_loss = -(1.0 / (h * w)) * torch.sum(torch.log(conf + sng))
-        
-        with torch.no_grad():
-            if conf_loss < 0.25:
-                lambda1 = 0.09 * lambda1 * (np.exp(5.4 * conf_loss.cpu().item()) - 0.98)
-
-        tot_loss = recloss + lambda1 * conf_loss
 
         log_dict = {
-            "rec_loss": recloss,
-            "conf_loss": conf_loss,
-            "loss": tot_loss,
+            "loss": recloss,
             "x0_recon": x0_recon
         }
-        return tot_loss, log_dict
+        return recloss, log_dict
 
     def q_sample(self, x0, y, t, noise=None):
         noise = default(noise, lambda: torch.randn_like(x0))
@@ -202,9 +209,9 @@ class BrownianBridgeModel(nn.Module):
         b, *_, device = *x_t.shape, x_t.device
         if self.steps[i] == 0:
             t = torch.full((x_t.shape[0],), self.steps[i], device=x_t.device, dtype=torch.long)
-            uncer_map = torch.zeros(x_t.shape, device=x_t.device)
-            x_t_hat = torch.cat([x_t, uncer_map], 1) 
-            objective_recon, conf = self.denoise_fn(x_t_hat, timesteps=t, context=context)
+            # uncer_map = torch.zeros(x_t.shape, device=x_t.device)
+            # x_t_hat = torch.cat([x_t, uncer_map], 1) 
+            objective_recon, _, _ = self.denoise_fn(x_t, timesteps=t, context=context)
             x0_recon = self.predict_x0_from_objective(x_t, y, t, objective_recon=objective_recon)
             if clip_denoised:
                 x0_recon.clamp_(-1., 1.)
@@ -214,9 +221,9 @@ class BrownianBridgeModel(nn.Module):
             t = torch.full((x_t.shape[0],), self.steps[i], device=x_t.device, dtype=torch.long)
             n_t = torch.full((x_t.shape[0],), self.steps[i+1], device=x_t.device, dtype=torch.long)
 
-            uncer_map = torch.zeros(x_t.shape, device=x_t.device)
-            x_t_hat = torch.cat([x_t, uncer_map], 1) 
-            objective_recon, conf = self.denoise_fn(x_t_hat, timesteps=t, context=context)
+            # uncer_map = torch.zeros(x_t.shape, device=x_t.device)
+            # x_t_hat = torch.cat([x_t, uncer_map], 1) 
+            objective_recon, _, _ = self.denoise_fn(x_t, timesteps=t, context=context)
             x0_recon = self.predict_x0_from_objective(x_t, y, t, objective_recon=objective_recon)
             if clip_denoised:
                 x0_recon.clamp_(-1., 1.)
