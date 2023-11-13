@@ -1,23 +1,23 @@
 
 data:
-  dataset_name: 'UncerBBDM_2Unet_15k_v1'
+  dataset_name: 'UncerBBDM_2Unet_15k_v3'
   dataset_type: 'custom_aligned'
   dataset_config:
     max_pixel_ori: 32767 # Pet 
     max_pixel_cond: 2047  # CT
-    dataset_path: /workdir/ssd2/nguyent_petct/data/splited_data_15k
+    dataset_path: /home/PET-CT/splited_data_15k
     image_size: 256
     channels: 1
     to_normal: True 
     flip: False
   train:
-    batch_size: 64
+    batch_size: 16
     shuffle: True
   val:
-    batch_size: 64
+    batch_size: 16
     shuffle: True
   test:
-    batch_size: 64
+    batch_size: 16
     # shuffle: False
 model: 
   BB: 
@@ -101,7 +101,7 @@ model:
     use_ema: True
   VQGAN: 
     params:
-      ckpt_path: /workdir/carrot/vqgan/vq1_3_69.ckpt
+      ckpt_path: /home/PET-CT/vqgan/vq1_3_69.ckpt
       ddconfig: 
         attn_resolutions: []
         ch: 128
@@ -121,14 +121,13 @@ model:
         target: torch.nn.Identity
       n_embed: 8192
   latent_before_quant_conv: False
-  unet1_load_path: ./results/UncerBBDM_1Unet_15k_v3/LBBDM-f4/checkpoint/top_model_epoch_260.pth
-  # model_load_path: ./results/UncerBBDM_2Unet_10k/LBBDM-f4/checkpoint/top_model_epoch_106.pth
+  unet1_load_path: /home/PET-CT/unet_ckpts/top_model_epoch_260.pth
+  model_load_path: ./results/UncerBBDM_2Unet_15k_v2/LBBDM-f4/checkpoint/top_model_epoch_108.pth
   model_name: LBBDM-f4
   model_type: LBBDM
   normalize_latent: False
   only_load_latent_mean_std: False
-  # optim_sche_load_path: ./results/UncerBBDM_2Unet_10k/LBBDM-f4/checkpoint/top_optim_sche_epoch_106.pth
-
+  optim_sche_load_path: ./results/UncerBBDM_2Unet_15k_v2/LBBDM-f4/checkpoint/top_optim_sche_epoch_108.pth
 runner: BBDMRunner
 testing: 
   clip_denoised: False 
