@@ -37,26 +37,34 @@ class BrownianBridgeModel(nn.Module):
         self.objective = model_params.objective
 
         # UNet
-        self.image_size = model_params.UNet2Params.image_size
-        self.channels = model_params.UNet2Params.in_channels
-        self.condition_key = model_params.UNet2Params.condition_key
+        self.image_size = model_params.UNet3Params.image_size
+        self.channels = model_params.UNet3Params.in_channels
+        self.condition_key = model_params.UNet3Params.condition_key
 
         self.denoise_fn1 = UNetModel(**vars(model_params.UNet1Params))
         if model_config.unet1_load_path is not None:
             print(f"load Unet1 from {model_config.unet1_load_path}")
-            self.load_unet_ckpt(self.denoise_fn1, model_config.unet1_load_path)
+            self.load_unet_ckpt(self.denoise_fn1, model_config.unet1_load_path, 'denoise_fn.')
         self.denoise_fn1.eval()
         self.denoise_fn1.train = disabled_train
         for param in self.denoise_fn1.parameters():
             param.requires_grad = False
-        
+            
         self.denoise_fn2 = UNetModel(**vars(model_params.UNet2Params))
+        if model_config.unet2_load_path is not None:
+            print(f"load Unet2 from {model_config.unet2_load_path}")
+            self.load_unet_ckpt(self.denoise_fn2, model_config.unet2_load_path, 'denoise_fn2.')
+        self.denoise_fn2.eval()
+        self.denoise_fn2.train = disabled_train
+        for param in self.denoise_fn2.parameters():
+            param.requires_grad = False
+        
+        self.denoise_fn3 = UNetModel(**vars(model_params.UNet3Params))
 
-    def load_unet_ckpt(self, model, path):
+    def load_unet_ckpt(self, model, path, unet_prefix):
         model_state_dict = torch.load(path, map_location='cpu')['model']
         
         unet_state_dict = {}
-        unet_prefix = 'denoise_fn.'
 
         for key, value in model_state_dict.items():
             if key.startswith(unet_prefix):
@@ -105,11 +113,11 @@ class BrownianBridgeModel(nn.Module):
             self.steps = torch.arange(self.num_timesteps-1, -1, -1)
 
     def apply(self, weight_init):
-        self.denoise_fn2.apply(weight_init)
+        self.denoise_fn3.apply(weight_init)
         return self
 
     def get_parameters(self):
-        return self.denoise_fn2.parameters()
+        return self.denoise_fn3.parameters()
 
     def forward(self, x, y, context=None):
         if self.condition_key == "nocond":
@@ -140,10 +148,14 @@ class BrownianBridgeModel(nn.Module):
         with torch.no_grad():
             objective_recon, objective_alpha, objective_beta = self.denoise_fn1(x_t, timesteps=t, context=context)
             
-        x_t_hat = torch.cat([x_t, objective_recon, objective_alpha, objective_beta], 1)
+            x_t_hat = torch.cat([x_t, objective_recon, objective_alpha, objective_beta], 1)
         
-        objective_recon, objective_alpha, objective_beta = self.denoise_fn2(x_t_hat, timesteps=t, context=context)
+            objective_recon, objective_alpha, objective_beta = self.denoise_fn2(x_t_hat, timesteps=t, context=context)
 
+        x_t_hat = torch.cat([x_t, objective_recon, objective_alpha, objective_beta], 1)
+
+        objective_recon, objective_alpha, objective_beta = self.denoise_fn3(x_t_hat, timesteps=t, context=context)
+        
         x0_recon = self.predict_x0_from_objective(x_t, y, t, objective_recon)
 
         # reconstruction loss
@@ -178,7 +190,7 @@ class BrownianBridgeModel(nn.Module):
             recloss = resi - log_alpha + lgamma_beta - log_beta
             recloss = torch.mean(recloss)
 
-            lambda1, lambda2 = 0.1, 0.01
+            lambda1, lambda2 = 1, 0.0001
             recloss = lambda1 * (objective - objective_recon).abs().mean() + lambda2 * recloss 
         else:
             raise NotImplementedError()
@@ -240,6 +252,8 @@ class BrownianBridgeModel(nn.Module):
             objective_recon, objective_alpha, objective_beta = self.denoise_fn1(x_t, timesteps=t, context=context)
             x_t_hat = torch.cat([x_t, objective_recon, objective_alpha, objective_beta], 1)
             objective_recon, objective_alpha, objective_beta = self.denoise_fn2(x_t_hat, timesteps=t, context=context)
+            x_t_hat = torch.cat([x_t, objective_recon, objective_alpha, objective_beta], 1)
+            objective_recon, objective_alpha, objective_beta = self.denoise_fn3(x_t_hat, timesteps=t, context=context)
             x0_recon = self.predict_x0_from_objective(x_t, y, t, objective_recon=objective_recon)
             if clip_denoised:
                 x0_recon.clamp_(-1., 1.)
@@ -252,6 +266,8 @@ class BrownianBridgeModel(nn.Module):
             objective_recon, objective_alpha, objective_beta = self.denoise_fn1(x_t, timesteps=t, context=context)
             x_t_hat = torch.cat([x_t, objective_recon, objective_alpha, objective_beta], 1)
             objective_recon, objective_alpha, objective_beta = self.denoise_fn2(x_t_hat, timesteps=t, context=context)
+            x_t_hat = torch.cat([x_t, objective_recon, objective_alpha, objective_beta], 1)
+            objective_recon, objective_alpha, objective_beta = self.denoise_fn3(x_t_hat, timesteps=t, context=context)
             x0_recon = self.predict_x0_from_objective(x_t, y, t, objective_recon=objective_recon)
             if clip_denoised:
                 x0_recon.clamp_(-1., 1.)
