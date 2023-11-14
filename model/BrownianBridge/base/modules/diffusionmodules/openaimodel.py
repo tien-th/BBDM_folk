@@ -692,7 +692,8 @@ class UNetModel(nn.Module):
         self.out2 = nn.Sequential(
             normalization(ch),
             nn.SiLU(),
-            conv_nd(dims, self.model_channels, out_channels, 3, padding=1),
+            conv_nd(dims, self.model_channels, self.model_channels * 2, 1, padding=0),
+            conv_nd(dims, self.model_channels * 2, out_channels, 3, padding=1),
             nn.Sigmoid()
         )
         if self.predict_codebook_ids:

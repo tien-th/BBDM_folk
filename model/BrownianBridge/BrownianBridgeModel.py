@@ -113,18 +113,13 @@ class BrownianBridgeModel(nn.Module):
         noise = default(noise, lambda: torch.randn_like(x0))
 
         x_t, objective = self.q_sample(x0, y, t, noise)     
-        uncer_map = torch.zeros(x_t.shape, device=x_t.device)
-            
-        x_t_hat = torch.cat([x_t, uncer_map], 1)
 
-        objective_recon, conf = self.denoise_fn(x_t_hat, timesteps=t, context=context)
+        objective_recon, conf = self.denoise_fn(x_t, timesteps=t, context=context)
 
         x0_recon = self.predict_x0_from_objective(x_t, y, t, objective_recon)
-        # conf = self.conf_net(torch.cat([x_t_hat, objective_recon], 1))
+        # conf = self.conf_net(torch.cat([x_t, objective_recon], 1))
 
         objective_eff = conf * objective_recon + (1 - conf) * objective
-
-        n_uncer_map = conf * objective_recon
 
         # reconstruction loss
         if self.loss_type == 'l1':
@@ -202,9 +197,7 @@ class BrownianBridgeModel(nn.Module):
         b, *_, device = *x_t.shape, x_t.device
         if self.steps[i] == 0:
             t = torch.full((x_t.shape[0],), self.steps[i], device=x_t.device, dtype=torch.long)
-            uncer_map = torch.zeros(x_t.shape, device=x_t.device)
-            x_t_hat = torch.cat([x_t, uncer_map], 1) 
-            objective_recon, conf = self.denoise_fn(x_t_hat, timesteps=t, context=context)
+            objective_recon, conf = self.denoise_fn(x_t, timesteps=t, context=context)
             x0_recon = self.predict_x0_from_objective(x_t, y, t, objective_recon=objective_recon)
             if clip_denoised:
                 x0_recon.clamp_(-1., 1.)
@@ -214,9 +207,7 @@ class BrownianBridgeModel(nn.Module):
             t = torch.full((x_t.shape[0],), self.steps[i], device=x_t.device, dtype=torch.long)
             n_t = torch.full((x_t.shape[0],), self.steps[i+1], device=x_t.device, dtype=torch.long)
 
-            uncer_map = torch.zeros(x_t.shape, device=x_t.device)
-            x_t_hat = torch.cat([x_t, uncer_map], 1) 
-            objective_recon, conf = self.denoise_fn(x_t_hat, timesteps=t, context=context)
+            objective_recon, conf = self.denoise_fn(x_t, timesteps=t, context=context)
             x0_recon = self.predict_x0_from_objective(x_t, y, t, objective_recon=objective_recon)
             if clip_denoised:
                 x0_recon.clamp_(-1., 1.)
