@@ -1,11 +1,11 @@
 
 data:
-  dataset_name: 'UncerBBDM_2Unet_10k'
+  dataset_name: 'UncerBBDM_2Unet_confloss_15k_v1'
   dataset_type: 'custom_aligned'
   dataset_config:
     max_pixel_ori: 32767 # Pet 
     max_pixel_cond: 2047  # CT
-    dataset_path: /workdir/carrot/splited_data_10k
+    dataset_path: /home/PET-CT/splited_data_15k
     image_size: 256
     channels: 1
     to_normal: True 
@@ -29,11 +29,35 @@ model:
       threshold: 0.0001
     optimizer: 
       beta1: 0.9
-      lr: 5.0e-05
+      lr: 0.0001
       optimizer: Adam
       weight_decay: 0.0
     params: 
-      UNetParams:
+      UNet1Params:
+        attention_resolutions: !!python/tuple
+        - 32
+        - 16
+        - 8
+        channel_mult: !!python/tuple
+        - 1
+        - 2
+        - 3
+        - 4
+        condition_key: nocond
+        context_dim:
+        conv_resample: True
+        dims: 2
+        image_size: 64
+        in_channels: 3
+        model_channels: 128
+        num_head_channels: 64
+        num_heads: 8
+        num_res_blocks: 2
+        out_channels: 3
+        resblock_updown: True
+        use_scale_shift_norm: True
+        use_spatial_transformer: False
+      UNet2Params:
         attention_resolutions: !!python/tuple
         - 32
         - 16
@@ -57,8 +81,6 @@ model:
         resblock_updown: True
         use_scale_shift_norm: True
         use_spatial_transformer: False
-        # sel_attn_depth: 2
-        # sel_attn_block: output
       eta: 1.0
       loss_type: l1
       max_var: 1.0
@@ -79,7 +101,7 @@ model:
     use_ema: True
   VQGAN: 
     params:
-      ckpt_path: /workdir/carrot/vqgan/vq1_3_69.ckpt
+      ckpt_path: /home/PET-CT/vqgan/vq1_3_69.ckpt
       ddconfig: 
         attn_resolutions: []
         ch: 128
@@ -99,7 +121,7 @@ model:
         target: torch.nn.Identity
       n_embed: 8192
   latent_before_quant_conv: False
-  unet1_load_path: ./results/UncerBBDM_1Unet_10k/LBBDM-f4/checkpoint/top_model_epoch_214.pth
+  unet1_load_path: ./results/UncerBBDM_1Unet_confloss_15k_v1/LBBDM-f4/checkpoint/top_model_epoch_88.pth
   # model_load_path: ./results/UncerBBDM_2Unet_10k/LBBDM-f4/checkpoint/top_model_epoch_106.pth
   model_name: LBBDM-f4
   model_type: LBBDM

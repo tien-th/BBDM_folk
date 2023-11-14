@@ -37,11 +37,11 @@ class BrownianBridgeModel(nn.Module):
         self.objective = model_params.objective
 
         # UNet
-        self.image_size = model_params.UNetParams.image_size
-        self.channels = model_params.UNetParams.in_channels
-        self.condition_key = model_params.UNetParams.condition_key
+        self.image_size = model_params.UNet2Params.image_size
+        self.channels = model_params.UNet2Params.in_channels
+        self.condition_key = model_params.UNet2Params.condition_key
 
-        self.denoise_fn1 = UNetModel(**vars(model_params.UNetParams))
+        self.denoise_fn1 = UNetModel(**vars(model_params.UNet1Params))
         if model_config.unet1_load_path is not None:
             print(f"load Unet1 from {model_config.unet1_load_path}")
             self.load_unet_ckpt(self.denoise_fn1, model_config.unet1_load_path)
@@ -50,7 +50,7 @@ class BrownianBridgeModel(nn.Module):
         for param in self.denoise_fn1.parameters():
             param.requires_grad = False
         
-        self.denoise_fn2 = UNetModel(**vars(model_params.UNetParams))
+        self.denoise_fn2 = UNetModel(**vars(model_params.UNet2Params))
         # self.conf_net = ConfidenceNetwork(**vars(model_params.ConfNetParams)) 
 
     def load_unet_ckpt(self, model, path):
@@ -139,19 +139,16 @@ class BrownianBridgeModel(nn.Module):
         noise = default(noise, lambda: torch.randn_like(x0))
 
         x_t, objective = self.q_sample(x0, y, t, noise)     
-        uncer_map = torch.zeros(x_t.shape, device=x_t.device)
-            
-        x_t_hat = torch.cat([x_t, uncer_map], 1)
         
         with torch.no_grad():
-            objective_recon, conf = self.denoise_fn1(x_t_hat, timesteps=t, context=context)
+            objective_recon, conf = self.denoise_fn1(x_t, timesteps=t, context=context)
             uncer_map = conf * objective_recon
             x_t_hat = torch.cat([x_t, uncer_map], 1)
 
         objective_recon, conf = self.denoise_fn2(x_t_hat, timesteps=t, context=context)
 
         x0_recon = self.predict_x0_from_objective(x_t, y, t, objective_recon)
-        # conf = self.conf_net(torch.cat([x_t_hat, objective_recon], 1))
+        # conf = self.conf_net(torch.cat([x_t, objective_recon], 1))
 
         objective_eff = conf * objective_recon + (1 - conf) * objective
 
@@ -164,13 +161,13 @@ class BrownianBridgeModel(nn.Module):
             raise NotImplementedError()
         
         # confidence loss
-        lambda1 = 0.9
+        lambda1 = 0.8
         sng = 1e-9
         
         conf_loss = -(1.0 / (h * w)) * torch.sum(torch.log(conf + sng))
         
         with torch.no_grad():
-            if conf_loss < 0.25 and recloss > 0.07:
+            if conf_loss < 0.25:
                 lambda1 = 0.09 * lambda1 * (np.exp(5.4 * conf_loss.cpu().item()) - 0.98)
 
         tot_loss = recloss + lambda1 * conf_loss
@@ -231,10 +228,8 @@ class BrownianBridgeModel(nn.Module):
         b, *_, device = *x_t.shape, x_t.device
         if self.steps[i] == 0:
             t = torch.full((x_t.shape[0],), self.steps[i], device=x_t.device, dtype=torch.long)
-            uncer_map = torch.zeros(x_t.shape, device=x_t.device)
-            x_t_hat = torch.cat([x_t, uncer_map], 1) 
             
-            objective_recon, conf = self.denoise_fn1(x_t_hat, timesteps=t, context=context)
+            objective_recon, conf = self.denoise_fn1(x_t, timesteps=t, context=context)
             uncer_map = conf * objective_recon
             x_t_hat = torch.cat([x_t, uncer_map], 1)
             
@@ -247,11 +242,8 @@ class BrownianBridgeModel(nn.Module):
         else:
             t = torch.full((x_t.shape[0],), self.steps[i], device=x_t.device, dtype=torch.long)
             n_t = torch.full((x_t.shape[0],), self.steps[i+1], device=x_t.device, dtype=torch.long)
-
-            uncer_map = torch.zeros(x_t.shape, device=x_t.device)
-            x_t_hat = torch.cat([x_t, uncer_map], 1) 
             
-            objective_recon, conf = self.denoise_fn1(x_t_hat, timesteps=t, context=context)
+            objective_recon, conf = self.denoise_fn1(x_t, timesteps=t, context=context)
             uncer_map = conf * objective_recon
             x_t_hat = torch.cat([x_t, uncer_map], 1)
             
