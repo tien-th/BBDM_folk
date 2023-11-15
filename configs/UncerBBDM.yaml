@@ -1,6 +1,6 @@
 
 data:
-  dataset_name: 'UncerBBDM_3Unet_15k_v1'
+  dataset_name: 'UncerBBDM_3Unet_15k_v2'
   dataset_type: 'custom_aligned'
   dataset_config:
     max_pixel_ori: 32767 # Pet 
@@ -147,12 +147,12 @@ model:
   latent_before_quant_conv: False
   unet1_load_path: /home/PET-CT/unet_ckpts/top_model_epoch_260.pth
   unet2_load_path: ./results/UncerBBDM_2Unet_15k_v3/LBBDM-f4/checkpoint/top_model_epoch_174.pth
-  # model_load_path: ./results/UncerBBDM_2Unet_15k_v2/LBBDM-f4/checkpoint/top_model_epoch_108.pth
+  model_load_path: ./results/UncerBBDM_3Unet_15k_v1/LBBDM-f4/checkpoint/top_model_epoch_66.pth
   model_name: LBBDM-f4
   model_type: LBBDM
   normalize_latent: False
   only_load_latent_mean_std: False
-  # optim_sche_load_path: ./results/UncerBBDM_2Unet_15k_v2/LBBDM-f4/checkpoint/top_optim_sche_epoch_108.pth
+  # optim_sche_load_path: ./results/UncerBBDM_3Unet_15k_v1/LBBDM-f4/checkpoint/top_optim_sche_epoch_66.pth
 runner: BBDMRunner
 testing: 
   clip_denoised: False 
