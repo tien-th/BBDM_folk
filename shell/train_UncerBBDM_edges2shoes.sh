@@ -1,5 +1,5 @@
 # train
-python3 main.py --config configs/edges2shoes.yaml --train --sample_at_start --save_top --gpu_ids 3
+python3 main.py --config configs/edges2shoes.yaml --train --sample_at_start --save_top --gpu_ids 1
 # python3 main.py --config configs/UncerBBDM.yaml --sample_to_eval --gpu_ids 2 --resume_model results/UncerBBDM_1Unet_confloss_15k_v1/LBBDM-f4/checkpoint/top_model_epoch_88.pth  --resume_optim results/UncerBBDM_1Unet_confloss_15k_v1/LBBDM-f4/checkpoint/top_optim_sche_epoch_88.pth
 
 # test
