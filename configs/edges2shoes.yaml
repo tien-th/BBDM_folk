@@ -36,8 +36,8 @@ model:
   latent_before_quant_conv: False
   normalize_latent: False
   only_load_latent_mean_std: False
-  # model_load_path:  # model checkpoint path
-  # optim_sche_load_path:  # optimizer scheduler checkpoint path
+  model_load_path: ./results/UncerBBDM_1Unet_edges2shoes_v1/LBBDM-f4/checkpoint/latest_model_6.pth
+  optim_sche_load_path: ./results/UncerBBDM_1Unet_edges2shoes_v1/LBBDM-f4/checkpoint/latest_optim_sche_6.pth
 
   EMA:
     use_ema: True
