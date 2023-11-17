@@ -190,7 +190,7 @@ class BrownianBridgeModel(nn.Module):
             recloss = resi - log_alpha + lgamma_beta - log_beta
             recloss = torch.mean(recloss)
 
-            lambda1, lambda2 = 0.5, 0.001
+            lambda1, lambda2 = 0.1, 0.01
             recloss = lambda1 * (objective - objective_recon).abs().mean() + lambda2 * recloss 
         else:
             raise NotImplementedError()
