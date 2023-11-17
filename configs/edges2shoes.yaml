@@ -1,7 +1,6 @@
-# Latent Brownian Bridge Diffusion Model Template(Latent Space)
 runner: "BBDMRunner"
 training:
-  n_epochs: 100
+  n_epochs: 200
   n_steps: 200000
   save_interval: 2
   sample_interval: 2
@@ -13,10 +12,10 @@ testing:
   sample_num: 1
 
 data:
-  dataset_name: 'dataset_name'
+  dataset_name: 'UncerBBDM_2Unet_edges2shoes_v1'
   dataset_type: 'custom_aligned'
   dataset_config:
-    dataset_path: '/workdir/ssd2/nguyent_petct/tiennh/edges2shoes'
+    dataset_path: /home/PET-CT/edges2shoes
     image_size: 256
     channels: 3
     to_normal: True
@@ -37,8 +36,9 @@ model:
   latent_before_quant_conv: False
   normalize_latent: False
   only_load_latent_mean_std: False
-  # model_load_path:  # model checkpoint path
-  # optim_sche_load_path:  # optimizer scheduler checkpoint path
+  unet1_load_path: ./results/UncerBBDM_1Unet_edges2shoes_v1/LBBDM-f4/checkpoint/top_model_epoch_46.pth
+  # model_load_path: ./results/UncerBBDM_1Unet_edges2shoes_v1/LBBDM-f4/checkpoint/latest_model_6.pth
+  # optim_sche_load_path: ./results/UncerBBDM_1Unet_edges2shoes_v1/LBBDM-f4/checkpoint/latest_optim_sche_6.pth
 
   EMA:
     use_ema: True
@@ -53,7 +53,7 @@ model:
 
   VQGAN:
     params:
-      ckpt_path: '/workdir/ssd2/nguyent_petct/tiennh/vqgan3c.ckpt'
+      ckpt_path: /home/PET-CT/vqgan3c.ckpt
       embed_dim: 3
       n_embed: 8192
       ddconfig:
@@ -91,7 +91,7 @@ model:
     params:
       mt_type: 'linear' # options {'linear', 'sin'}
       objective: 'grad' # options {'grad', 'noise', 'ysubx'}
-      loss_type: ggd # options {'l1', 'l2'}
+      loss_type: ggd # options {'l1', 'l2', 'ggd'}
 
       skip_sample: True
       sample_type: 'linear' # options {"linear", "sin"}
@@ -101,9 +101,33 @@ model:
       eta: 1.0 # DDIM reverse process eta
       max_var: 1.0 # maximum variance
 
-      UNetParams:
+      UNet1Params:
         image_size: 64
         in_channels: 3
+        model_channels: 128
+        out_channels: 3
+        num_res_blocks: 2
+        attention_resolutions: !!python/tuple
+          - 32
+          - 16
+          - 8
+        channel_mult: !!python/tuple
+          - 1
+          - 4
+          - 8
+        conv_resample: True
+        dims: 2
+        num_heads: 8
+        num_head_channels: 64
+        use_scale_shift_norm: True
+        resblock_updown: True
+        use_spatial_transformer: False
+        context_dim:
+        condition_key: "nocond" # options {"SpatialRescaler", "first_stage", "nocond"}
+
+      UNet2Params:
+        image_size: 64
+        in_channels: 12
         model_channels: 128
         out_channels: 3
         num_res_blocks: 2
