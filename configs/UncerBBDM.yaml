@@ -147,12 +147,12 @@ model:
   latent_before_quant_conv: False
   unet1_load_path: ./results/UncerBBDM_1Unet_confloss_15k_v1/LBBDM-f4/checkpoint/top_model_epoch_88.pth
   unet2_load_path: ./results/UncerBBDM_2Unet_confloss_15k_v1/LBBDM-f4/checkpoint/top_model_epoch_68.pth
-  # model_load_path: ./results/UncerBBDM_2Unet_10k/LBBDM-f4/checkpoint/top_model_epoch_106.pth
+  model_load_path: ./results/UncerBBDM_3Unet_confloss_15k_v1/LBBDM-f4/checkpoint/last_model.pth
   model_name: LBBDM-f4
   model_type: LBBDM
   normalize_latent: False
   only_load_latent_mean_std: False
-  # optim_sche_load_path: ./results/UncerBBDM_2Unet_10k/LBBDM-f4/checkpoint/top_optim_sche_epoch_106.pth
+  optim_sche_load_path: ./results/UncerBBDM_3Unet_confloss_15k_v1/LBBDM-f4/checkpoint/last_optim_sche.pth
 
 runner: BBDMRunner
 testing: 
