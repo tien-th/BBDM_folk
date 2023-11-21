@@ -37,9 +37,9 @@ class BrownianBridgeModel(nn.Module):
         self.objective = model_params.objective
 
         # UNet
-        self.image_size = model_params.UNet3Params.image_size
-        self.channels = model_params.UNet3Params.in_channels
-        self.condition_key = model_params.UNet3Params.condition_key
+        self.image_size = model_params.UNet4Params.image_size
+        self.channels = model_params.UNet4Params.in_channels
+        self.condition_key = model_params.UNet4Params.condition_key
 
         self.denoise_fn1 = UNetModel(**vars(model_params.UNet1Params))
         if model_config.unet1_load_path is not None:
@@ -58,8 +58,17 @@ class BrownianBridgeModel(nn.Module):
         self.denoise_fn2.train = disabled_train
         for param in self.denoise_fn2.parameters():
             param.requires_grad = False
+            
+        self.denoise_fn3 = UNetModel(**vars(model_params.UNet3Params))
+        if model_config.unet3_load_path is not None:
+            print(f"load Unet3 from {model_config.unet3_load_path}")
+            self.load_unet_ckpt(self.denoise_fn3, model_config.unet3_load_path, 'denoise_fn3.')
+        self.denoise_fn3.eval()
+        self.denoise_fn3.train = disabled_train
+        for param in self.denoise_fn3.parameters():
+            param.requires_grad = False
 
-        self.denoise_fn3 = UNetModel(**vars(model_params.UNet3Params))    
+        self.denoise_fn4 = UNetModel(**vars(model_params.UNet4Params))    
         # self.conf_net = ConfidenceNetwork(**vars(model_params.ConfNetParams)) 
 
     def load_unet_ckpt(self, model, path, unet_prefix):
@@ -114,12 +123,12 @@ class BrownianBridgeModel(nn.Module):
             self.steps = torch.arange(self.num_timesteps-1, -1, -1)
 
     def apply(self, weight_init):
-        self.denoise_fn3.apply(weight_init)
+        self.denoise_fn4.apply(weight_init)
         # self.conf_net.apply(weight_init)
         return self
 
     def get_parameters(self):
-        return self.denoise_fn3.parameters()
+        return self.denoise_fn4.parameters()
         # return itertools.chain(self.denoise_fn3.parameters(), self.conf_net.parameters())
 
     def forward(self, x, y, context=None):
@@ -156,8 +165,12 @@ class BrownianBridgeModel(nn.Module):
             objective_recon, conf = self.denoise_fn2(x_t_hat, timesteps=t, context=context)
             uncer_map = conf * objective_recon
             x_t_hat = torch.cat([x_t, uncer_map], 1)
+            
+            objective_recon, conf = self.denoise_fn3(x_t_hat, timesteps=t, context=context)
+            uncer_map = conf * objective_recon
+            x_t_hat = torch.cat([x_t, uncer_map], 1)
 
-        objective_recon, conf = self.denoise_fn3(x_t_hat, timesteps=t, context=context)
+        objective_recon, conf = self.denoise_fn4(x_t_hat, timesteps=t, context=context)
 
         x0_recon = self.predict_x0_from_objective(x_t, y, t, objective_recon)
         # conf = self.conf_net(torch.cat([x_t_hat, objective_recon], 1))
@@ -250,6 +263,10 @@ class BrownianBridgeModel(nn.Module):
             x_t_hat = torch.cat([x_t, uncer_map], 1)
             
             objective_recon, conf = self.denoise_fn3(x_t_hat, timesteps=t, context=context)
+            uncer_map = conf * objective_recon
+            x_t_hat = torch.cat([x_t, uncer_map], 1)
+            
+            objective_recon, conf = self.denoise_fn4(x_t_hat, timesteps=t, context=context)
             x0_recon = self.predict_x0_from_objective(x_t, y, t, objective_recon=objective_recon)
             if clip_denoised:
                 x0_recon.clamp_(-1., 1.)
@@ -268,6 +285,10 @@ class BrownianBridgeModel(nn.Module):
             x_t_hat = torch.cat([x_t, uncer_map], 1)
             
             objective_recon, conf = self.denoise_fn3(x_t_hat, timesteps=t, context=context)
+            uncer_map = conf * objective_recon
+            x_t_hat = torch.cat([x_t, uncer_map], 1)
+            
+            objective_recon, conf = self.denoise_fn4(x_t_hat, timesteps=t, context=context)
             x0_recon = self.predict_x0_from_objective(x_t, y, t, objective_recon=objective_recon)
             if clip_denoised:
                 x0_recon.clamp_(-1., 1.)

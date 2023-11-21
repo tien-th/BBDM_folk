@@ -1,6 +1,6 @@
 
 data:
-  dataset_name: 'UncerBBDM_3Unet_confloss_15k_v1'
+  dataset_name: 'UncerBBDM_4Unet_confloss_15k_v1'
   dataset_type: 'custom_aligned'
   dataset_config:
     max_pixel_ori: 32767 # Pet 
@@ -105,6 +105,30 @@ model:
         resblock_updown: True
         use_scale_shift_norm: True
         use_spatial_transformer: False
+      UNet4Params:
+        attention_resolutions: !!python/tuple
+        - 32
+        - 16
+        - 8
+        channel_mult: !!python/tuple
+        - 1
+        - 2
+        - 3
+        - 4
+        condition_key: nocond
+        context_dim:
+        conv_resample: True
+        dims: 2
+        image_size: 64
+        in_channels: 6
+        model_channels: 128
+        num_head_channels: 64
+        num_heads: 8
+        num_res_blocks: 2
+        out_channels: 3
+        resblock_updown: True
+        use_scale_shift_norm: True
+        use_spatial_transformer: False
       eta: 1.0
       loss_type: l1
       max_var: 1.0
@@ -147,12 +171,13 @@ model:
   latent_before_quant_conv: False
   unet1_load_path: ./results/UncerBBDM_1Unet_confloss_15k_v1/LBBDM-f4/checkpoint/top_model_epoch_88.pth
   unet2_load_path: ./results/UncerBBDM_2Unet_confloss_15k_v1/LBBDM-f4/checkpoint/top_model_epoch_68.pth
-  model_load_path: ./results/UncerBBDM_3Unet_confloss_15k_v1/LBBDM-f4/checkpoint/last_model.pth
+  unet3_load_path: ./results/UncerBBDM_3Unet_confloss_15k_v1/LBBDM-f4/checkpoint/top_model_epoch_90.pth
+  # model_load_path: ./results/UncerBBDM_3Unet_confloss_15k_v1/LBBDM-f4/checkpoint/last_model.pth
   model_name: LBBDM-f4
   model_type: LBBDM
   normalize_latent: False
   only_load_latent_mean_std: False
-  optim_sche_load_path: ./results/UncerBBDM_3Unet_confloss_15k_v1/LBBDM-f4/checkpoint/last_optim_sche.pth
+  # optim_sche_load_path: ./results/UncerBBDM_3Unet_confloss_15k_v1/LBBDM-f4/checkpoint/last_optim_sche.pth
 
 runner: BBDMRunner
 testing: 

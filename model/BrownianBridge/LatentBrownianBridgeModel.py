@@ -43,13 +43,13 @@ class LatentBrownianBridgeModel(BrownianBridgeModel):
         if self.condition_key == 'SpatialRescaler':
             print("get parameters to optimize: SpatialRescaler, UNet")
             # print("get parameters to optimize: SpatialRescaler, UNet, Confidence Network")
-            params = itertools.chain(self.denoise_fn3.parameters(), self.cond_stage_model.parameters())
-            # params = itertools.chain(self.denoise_fn3.parameters(), self.conf_net.parameters(), self.cond_stage_model.parameters())
+            params = itertools.chain(self.denoise_fn4.parameters(), self.cond_stage_model.parameters())
+            # params = itertools.chain(self.denoise_fn4.parameters(), self.conf_net.parameters(), self.cond_stage_model.parameters())
         else:
             print("get parameters to optimize: UNet")
             # print("get parameters to optimize: UNet, Confidence Network")
-            params = itertools.chain(self.denoise_fn3.parameters())
-            # params = itertools.chain(self.denoise_fn3.parameters(), self.conf_net.parameters())
+            params = itertools.chain(self.denoise_fn4.parameters())
+            # params = itertools.chain(self.denoise_fn4.parameters(), self.conf_net.parameters())
         return params
 
     def apply(self, weights_init):
