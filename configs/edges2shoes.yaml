@@ -12,7 +12,7 @@ testing:
   sample_num: 1
 
 data:
-  dataset_name: 'UncerBBDM_1Unet_edges2shoes_v2'
+  dataset_name: 'UncerBBDM_1Unet_edges2shoes_v3'
   dataset_type: 'custom_aligned'
   dataset_config:
     dataset_path: /home/PET-CT/edges2shoes
@@ -36,8 +36,8 @@ model:
   latent_before_quant_conv: False
   normalize_latent: False
   only_load_latent_mean_std: False
-  model_load_path: ./results/UncerBBDM_1Unet_edges2shoes_v2/LBBDM-f4/checkpoint/latest_model_64.pth
-  optim_sche_load_path: ./results/UncerBBDM_1Unet_edges2shoes_v2/LBBDM-f4/checkpoint/latest_optim_sche_64.pth
+  model_load_path: ./results/UncerBBDM_1Unet_edges2shoes_v2/LBBDM-f4/checkpoint/top_model_epoch_66.pth
+  # optim_sche_load_path: ./results/UncerBBDM_1Unet_edges2shoes_v2/LBBDM-f4/checkpoint/latest_optim_sche_64.pth
 
   EMA:
     use_ema: True
