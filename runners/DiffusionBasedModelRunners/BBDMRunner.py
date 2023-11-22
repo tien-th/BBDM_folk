@@ -219,6 +219,36 @@ class BBDMRunner(DiffusionBaseRunner):
         if stage != 'test':
             self.writer.add_image(f'{stage}_ground_truth', image_grid, self.global_step, dataformats='HWC')
 
+    # @torch.no_grad()
+    # def sample_to_eval(self, net, test_loader, sample_path):
+    #     condition_path = make_dir(os.path.join(sample_path, f'condition'))
+    #     gt_path = make_dir(os.path.join(sample_path, 'ground_truth'))
+    #     result_path = make_dir(os.path.join(sample_path, str(self.config.model.BB.params.sample_step)))
+
+    #     pbar = tqdm(test_loader, total=len(test_loader), smoothing=0.01)
+    #     batch_size = self.config.data.test.batch_size
+    #     to_normal = self.config.data.dataset_config.to_normal
+    #     sample_num = self.config.testing.sample_num
+    #     for test_batch in pbar:
+    #         (x, x_name), (x_cond, x_cond_name) = test_batch
+    #         x = x.to(self.config.training.device[0])
+    #         x_cond = x_cond.to(self.config.training.device[0])
+
+    #         for j in range(sample_num):
+    #             sample = net.sample(x_cond, clip_denoised=False)
+    #             # sample = net.sample_vqgan(x)
+    #             for i in range(batch_size):
+    #                 condition = x_cond[i].detach().clone()
+    #                 gt = x[i]
+    #                 result = sample[i]
+    #                 if j == 0:
+    #                     save_single_image(condition, condition_path, f'{x_cond_name[i]}.npy', max_pixel= self.config.data.dataset_config.max_pixel_cond,to_normal=False)
+    #                     save_single_image(gt, gt_path, f'{x_name[i]}.npy', max_pixel= self.config.data.dataset_config.max_pixel_ori , to_normal=True)
+    #                 if sample_num > 1:
+    #                     result_path_i = make_dir(os.path.join(result_path, x_name[i]))
+    #                     save_single_image(result, result_path_i, f'output_{j}.npy', max_pixel= self.config.data.dataset_config.max_pixel_ori ,to_normal=True)
+    #                 else:
+    #                     save_single_image(result, result_path, f'{x_name[i]}.npy',max_pixel= self.config.data.dataset_config.max_pixel_ori ,to_normal=True)
     @torch.no_grad()
     def sample_to_eval(self, net, test_loader, sample_path):
         condition_path = make_dir(os.path.join(sample_path, f'condition'))
@@ -242,10 +272,10 @@ class BBDMRunner(DiffusionBaseRunner):
                     gt = x[i]
                     result = sample[i]
                     if j == 0:
-                        save_single_image(condition, condition_path, f'{x_cond_name[i]}.npy', max_pixel= self.config.data.dataset_config.max_pixel_cond,to_normal=False)
-                        save_single_image(gt, gt_path, f'{x_name[i]}.npy', max_pixel= self.config.data.dataset_config.max_pixel_ori , to_normal=True)
+                        save_single_image(condition, condition_path, f'{x_cond_name[i]}.png', to_normal=to_normal)
+                        save_single_image(gt, gt_path, f'{x_name[i]}.png', to_normal=to_normal)
                     if sample_num > 1:
                         result_path_i = make_dir(os.path.join(result_path, x_name[i]))
-                        save_single_image(result, result_path_i, f'output_{j}.npy', max_pixel= self.config.data.dataset_config.max_pixel_ori ,to_normal=True)
+                        save_single_image(result, result_path_i, f'output_{j}.png', to_normal=to_normal)
                     else:
-                        save_single_image(result, result_path, f'{x_name[i]}.npy',max_pixel= self.config.data.dataset_config.max_pixel_ori ,to_normal=True)
+                        save_single_image(result, result_path, f'{x_name[i]}.png', to_normal=to_normal)
