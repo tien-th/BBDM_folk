@@ -5,7 +5,7 @@ import torch
 from tqdm.autonotebook import tqdm
 
 loss_fn = lpips.LPIPS(net='alex', version='0.1').to(torch.device('cuda:0'))
-# loss_fn = lpips.LPIPS(net='alex', version='0.1').to(torch.device('cpu'))
+
 
 @torch.no_grad()
 def calc_LPIPS(data_dir, gt_dir, num_samples=1):
@@ -14,8 +14,10 @@ def calc_LPIPS(data_dir, gt_dir, num_samples=1):
 
     total = len(dir_list)
     total_lpips_distance = 0
-    for i in tqdm(range(total), total=total, smoothing=0.01):
+    for i in tqdm(range(45000, 45000 + total), total=total, smoothing=0.01):
         gt_name = os.path.join(gt_dir, f'{str(i)}.png')
+        # print('--------------------------------------')
+        # print(gt_name)
         gt_img = lpips.im2tensor(lpips.load_image(gt_name)).to(torch.device('cuda:0'))
         for j in range(num_samples):
             if num_samples == 1:
@@ -70,3 +72,8 @@ def find_max_min_LPIPS(data_dir, gt_dir, num_samples=1):
             print(f"{i} current_LPIPS = {avg_LPIPS}, max_LPIPS = {max_LPIPS}, min_LPIPS = {min_LPIPS}")
     print(data_dir)
     print(f'max_LPIPS = {max_LPIPS}, min_LPIPS = {min_LPIPS}')
+
+if __name__ == "__main__": 
+    calc_LPIPS('/home/PET-CT/thaind/BBDM_folk/results/UncerBBDM_2Unet_confloss_edges2shoes_v1/LBBDM-f4/sample_to_eval/200', '/home/PET-CT/thaind/BBDM_folk/results/UncerBBDM_2Unet_confloss_edges2shoes_v1/LBBDM-f4/sample_to_eval/ground_truth', 1)
+
+# /home/PET-CT/thaind/BBDM_folk/results/UncerBBDM_2Unet_confloss_edges2shoes_v1/LBBDM-f4/sample_to_eval/200
