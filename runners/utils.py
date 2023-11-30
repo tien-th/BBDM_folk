@@ -71,7 +71,10 @@ def save_single_image(image, save_path, file_name, max_pixel, to_normal=True):
     image = image.detach().clone()
     if to_normal:
         image = image.mul_(0.5).add_(0.5).clamp_(0, 1.)
-    image = image.mul_(max_pixel).add_(0.2).clamp_(0, max_pixel).permute(1, 2, 0).to('cpu').numpy()
+    if max_pixel == 1:
+        image = image.mul_(max_pixel).permute(1, 2, 0).to('cpu').numpy()
+    else:
+        image = image.mul_(max_pixel).add_(0.2).clamp_(0, max_pixel).permute(1, 2, 0).to('cpu').numpy()
 
     print(os.path.join(save_path, file_name))
     np.save(os.path.join(save_path, file_name), image)

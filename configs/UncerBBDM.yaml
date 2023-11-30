@@ -1,11 +1,11 @@
 
 data:
-  dataset_name: 'UncerBBDM_1Unet_15k_v3'
+  dataset_name: '1130_UncerBBDM_1Unet_15k_v3_testing_samples'
   dataset_type: 'custom_aligned'
   dataset_config:
     max_pixel_ori: 32767 # Pet 
     max_pixel_cond: 2047 # CT
-    dataset_path: /workdir/ssd2/nguyent_petct/data/splited_data_15k
+    dataset_path: /home/PET-CT/splited_data_15k
     image_size: 256
     channels: 1
     to_normal: True 
@@ -29,7 +29,7 @@ model:
       threshold: 0.0001
     optimizer: 
       beta1: 0.9
-      lr: 0.00005
+      lr: 0.0001
       optimizer: Adam
       weight_decay: 0.0
     params: 
@@ -98,7 +98,7 @@ model:
         target: torch.nn.Identity
       n_embed: 8192
   latent_before_quant_conv: False
-  model_load_path: ./results/UncerBBDM_1Unet_15k_v2/LBBDM-f4/checkpoint/top_model_epoch_208.pth
+  # model_load_path: ./results/UncerBBDM_1Unet_15k_v2/LBBDM-f4/checkpoint/top_model_epoch_208.pth
   model_name: LBBDM-f4
   model_type: LBBDM
   normalize_latent: False
@@ -111,7 +111,7 @@ testing:
   sample_num: 1
 training: 
   accumulate_grad_batches: 4
-  n_epochs: 400
+  n_epochs: 200
   n_steps: 200000
   sample_interval: 2
   save_interval: 2

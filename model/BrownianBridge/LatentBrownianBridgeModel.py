@@ -123,13 +123,13 @@ class LatentBrownianBridgeModel(BrownianBridgeModel):
                 one_step_samples.append(out.to('cpu'))
             return out_samples, one_step_samples
         else:
-            temp = self.p_sample_loop(y=x_cond_latent,
+            temp, alpha, beta = self.p_sample_loop(y=x_cond_latent,
                                       context=self.get_cond_stage_context(x_cond),
                                       clip_denoised=clip_denoised,
                                       sample_mid_step=sample_mid_step)
             x_latent = temp
             out = self.decode(x_latent, cond=False)
-            return out
+            return out, alpha, beta
 
     @torch.no_grad()
     def sample_vqgan(self, x):

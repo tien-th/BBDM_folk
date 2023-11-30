@@ -1,7 +1,7 @@
 # train
-python3 main.py --config configs/UncerBBDM.yaml --train --sample_at_start --save_top --gpu_ids 3
+# python3 main.py --config configs/UncerBBDM.yaml --train --sample_at_start --save_top --gpu_ids 3
 # python3 main.py --config configs/UncerBBDM3c.yaml --train --sample_at_start --save_top --gpu_ids 3
-# python3 main.py --config configs/UncerBBDM.yaml --sample_to_eval --gpu_ids 3 --resume_model results/UncerBBDM_1Unet_15k_v3/LBBDM-f4/checkpoint/top_model_epoch_260.pth  --resume_optim results/UncerBBDM_1Unet_15k_v3/LBBDM-f4/checkpoint/top_optim_sche_epoch_260.pth
+python3 main.py --config configs/UncerBBDM.yaml --sample_to_eval --gpu_ids 0 --resume_model /home/PET-CT/unet_ckpts/top_model_epoch_260.pth  --resume_optim /home/PET-CT/unet_ckpts/top_model_epoch_260.pth
 # python3 main.py --config configs/UncerBBDM3c.yaml --sample_to_eval --gpu_ids 3 --resume_model results/108_CT2PET_UncerBBDM3c_/LBBDM-f4/checkpoint/top_model_epoch_126.pth  --resume_optim results/108_CT2PET_UncerBBDM3c_/LBBDM-f4/checkpoint/top_optim_sche_epoch_126.pth
 
 #test
