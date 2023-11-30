@@ -1,11 +1,12 @@
 
 data:
-  dataset_name: 'UncerBBDM_1Unet_confloss_15k_training_samples_latest_model'
+  dataset_name: '1130_UncerBBDM_1Unet_confloss_15k'
   dataset_type: 'custom_aligned'
   dataset_config:
     max_pixel_ori: 32767 # Pet 
     max_pixel_cond: 2047  # CT
     dataset_path: /home/PET-CT/splited_data_15k
+    # dataset_path: /home/PET-CT/thaind/BBDM_folk/baddataset
     image_size: 256
     channels: 1
     to_normal: True 

@@ -204,7 +204,8 @@ class BBDMRunner(DiffusionBaseRunner):
         #                  writer_tag=f'{stage}_one_step_sample' if stage != 'test' else None)
         #
         # sample = samples[-1]
-        sample = net.sample(x_cond, clip_denoised=self.config.testing.clip_denoised).to('cpu')
+        sample, conf = net.sample(x_cond, clip_denoised=self.config.testing.clip_denoised)
+        sample.to('cpu')
         image_grid = get_image_grid(sample, grid_size, to_normal=self.config.data.dataset_config.to_normal)
         im = Image.fromarray(image_grid)
         im.save(os.path.join(sample_path, 'skip_sample.png'))
@@ -225,6 +226,7 @@ class BBDMRunner(DiffusionBaseRunner):
 
     @torch.no_grad()
     def sample_to_eval(self, net, test_loader, sample_path):
+        conf_path = make_dir(os.path.join(sample_path, f'confidence'))
         condition_path = make_dir(os.path.join(sample_path, f'condition'))
         gt_path = make_dir(os.path.join(sample_path, 'ground_truth'))
         result_path = make_dir(os.path.join(sample_path, str(self.config.model.BB.params.sample_step)))
@@ -239,13 +241,14 @@ class BBDMRunner(DiffusionBaseRunner):
             x_cond = x_cond.to(self.config.training.device[0])
 
             for j in range(sample_num):
-                sample = net.sample(x_cond, clip_denoised=False)
+                sample, conf = net.sample(x_cond, clip_denoised=False)
                 # sample = net.sample_vqgan(x)
                 for i in range(batch_size):
                     condition = x_cond[i].detach().clone()
                     gt = x[i]
                     result = sample[i]
                     if j == 0:
+                        save_single_image(conf[i], conf_path, f'{x_name[i]}.npy', max_pixel=1,to_normal=False)
                         save_single_image(condition, condition_path, f'{x_cond_name[i]}.npy', max_pixel= self.config.data.dataset_config.max_pixel_cond,to_normal=False)
                         save_single_image(gt, gt_path, f'{x_name[i]}.npy', max_pixel= self.config.data.dataset_config.max_pixel_ori , to_normal=True)
                     if sample_num > 1:
