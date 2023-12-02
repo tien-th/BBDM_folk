@@ -122,8 +122,10 @@ class BrownianBridgeModel(nn.Module):
         objective_eff = conf * objective_recon + (1 - conf) * objective
 
         # reconstruction loss
+        alpha = 2
+        
         if self.loss_type == 'l1':
-            recloss = (objective - objective_eff).abs().mean()
+            recloss = (torch.exp(alpha * x0) * (objective - objective_eff)).abs().mean()
         elif self.loss_type == 'l2':
             recloss = F.mse_loss(objective, objective_eff)
         else:
@@ -138,7 +140,7 @@ class BrownianBridgeModel(nn.Module):
         with torch.no_grad():
             if conf_loss < 0.25:
                 lambda1 = 0.09 * lambda1 * (np.exp(5.4 * conf_loss.cpu().item()) - 0.98)
-
+        
         tot_loss = recloss + lambda1 * conf_loss
 
         log_dict = {
