@@ -122,7 +122,7 @@ class BrownianBridgeModel(nn.Module):
         objective_eff = conf * objective_recon + (1 - conf) * objective
 
         # reconstruction loss
-        alpha = 2
+        alpha = 1
         
         if self.loss_type == 'l1':
             recloss = (torch.exp(alpha * x0) * (objective - objective_eff)).abs().mean()
