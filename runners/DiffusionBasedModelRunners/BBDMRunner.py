@@ -9,7 +9,7 @@ from model.BrownianBridge.BrownianBridgeModel import BrownianBridgeModel
 from model.BrownianBridge.LatentBrownianBridgeModel import LatentBrownianBridgeModel
 from runners.DiffusionBasedModelRunners.DiffusionBaseRunner import DiffusionBaseRunner
 from runners.utils import weights_init, get_optimizer, get_dataset, make_dir, get_image_grid, save_single_image
-from tqdm.autonotebook import tqdm
+from tqdm.autonotebook import tqdm  
 from torchsummary import summary
 
 
@@ -223,6 +223,10 @@ class BBDMRunner(DiffusionBaseRunner):
         im.save(os.path.join(sample_path, 'ground_truth.png'))
         if stage != 'test':
             self.writer.add_image(f'{stage}_ground_truth', image_grid, self.global_step, dataformats='HWC')
+            
+        image_grid = get_image_grid(conf, grid_size, to_normal=False)
+        im = Image.fromarray(image_grid)
+        im.save(os.path.join(sample_path, 'confidence_map.png'))
 
     @torch.no_grad()
     def sample_to_eval(self, net, test_loader, sample_path):
