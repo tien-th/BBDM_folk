@@ -1,6 +1,6 @@
 
 data:
-  dataset_name: 'UncerBBDM_2Unet_confloss_15k_training_samples_latest_model'
+  dataset_name: '123_UncerBBDM_2Unet_confloss_15k'
   dataset_type: 'custom_aligned'
   dataset_config:
     max_pixel_ori: 32767 # Pet 
@@ -121,7 +121,7 @@ model:
         target: torch.nn.Identity
       n_embed: 8192
   latent_before_quant_conv: False
-  unet1_load_path: ./results/UncerBBDM_1Unet_confloss_15k_v1/LBBDM-f4/checkpoint/top_model_epoch_88.pth
+  unet1_load_path: ./results/123_UncerBBDM_1Unet_confloss_15k/LBBDM-f4/checkpoint/top_model_epoch_108.pth
   # model_load_path: ./results/UncerBBDM_2Unet_10k/LBBDM-f4/checkpoint/top_model_epoch_106.pth
   model_name: LBBDM-f4
   model_type: LBBDM

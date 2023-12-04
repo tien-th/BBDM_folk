@@ -161,14 +161,14 @@ class BrownianBridgeModel(nn.Module):
             raise NotImplementedError()
         
         # confidence loss
-        lambda1 = 0.8
+        lambda1 = 0.01
         sng = 1e-9
         
         conf_loss = -(1.0 / (h * w)) * torch.sum(torch.log(conf + sng))
         
-        with torch.no_grad():
-            if conf_loss < 0.25:
-                lambda1 = 0.09 * lambda1 * (np.exp(5.4 * conf_loss.cpu().item()) - 0.98)
+        # with torch.no_grad():
+        #     if conf_loss < 0.25:
+        #         lambda1 = 0.09 * lambda1 * (np.exp(5.4 * conf_loss.cpu().item()) - 0.98)
 
         tot_loss = recloss + lambda1 * conf_loss
 
@@ -229,25 +229,25 @@ class BrownianBridgeModel(nn.Module):
         if self.steps[i] == 0:
             t = torch.full((x_t.shape[0],), self.steps[i], device=x_t.device, dtype=torch.long)
             
-            objective_recon, conf = self.denoise_fn1(x_t, timesteps=t, context=context)
-            uncer_map = conf * objective_recon
+            objective_recon, conf1 = self.denoise_fn1(x_t, timesteps=t, context=context)
+            uncer_map = conf1 * objective_recon
             x_t_hat = torch.cat([x_t, uncer_map], 1)
             
-            objective_recon, conf = self.denoise_fn2(x_t_hat, timesteps=t, context=context)
+            objective_recon, conf2 = self.denoise_fn2(x_t_hat, timesteps=t, context=context)
             x0_recon = self.predict_x0_from_objective(x_t, y, t, objective_recon=objective_recon)
             if clip_denoised:
                 x0_recon.clamp_(-1., 1.)
 
-            return x0_recon, x0_recon
+            return x0_recon, x0_recon, conf1, conf2
         else:
             t = torch.full((x_t.shape[0],), self.steps[i], device=x_t.device, dtype=torch.long)
             n_t = torch.full((x_t.shape[0],), self.steps[i+1], device=x_t.device, dtype=torch.long)
             
-            objective_recon, conf = self.denoise_fn1(x_t, timesteps=t, context=context)
-            uncer_map = conf * objective_recon
+            objective_recon, conf1 = self.denoise_fn1(x_t, timesteps=t, context=context)
+            uncer_map = conf1 * objective_recon
             x_t_hat = torch.cat([x_t, uncer_map], 1)
             
-            objective_recon, conf = self.denoise_fn2(x_t_hat, timesteps=t, context=context)
+            objective_recon, conf2 = self.denoise_fn2(x_t_hat, timesteps=t, context=context)
             x0_recon = self.predict_x0_from_objective(x_t, y, t, objective_recon=objective_recon)
             if clip_denoised:
                 x0_recon.clamp_(-1., 1.)
@@ -263,7 +263,7 @@ class BrownianBridgeModel(nn.Module):
             x_tminus_mean = (1. - m_nt) * x0_recon + m_nt * y + torch.sqrt((var_nt - sigma2_t) / var_t) * \
                             (x_t - (1. - m_t) * x0_recon - m_t * y)
 
-            return x_tminus_mean + sigma_t * noise, x0_recon
+            return x_tminus_mean + sigma_t * noise, x0_recon, conf1, conf2
 
     @torch.no_grad()
     def p_sample_loop(self, y, context=None, clip_denoised=True, sample_mid_step=False):
@@ -275,17 +275,17 @@ class BrownianBridgeModel(nn.Module):
         if sample_mid_step:
             imgs, one_step_imgs = [y], []
             for i in tqdm(range(len(self.steps)), desc=f'sampling loop time step', total=len(self.steps)):
-                img, x0_recon = self.p_sample(x_t=imgs[-1], y=y, context=context, i=i, clip_denoised=clip_denoised)
+                img, x0_recon, conf1, conf2 = self.p_sample(x_t=imgs[-1], y=y, context=context, i=i, clip_denoised=clip_denoised)
                 imgs.append(img)
                 one_step_imgs.append(x0_recon)
 
-            return imgs, one_step_imgs
+            return imgs, one_step_imgs, conf1, conf2
         else:
             img = y
             for i in tqdm(range(len(self.steps)), desc=f'sampling loop time step', total=len(self.steps)):
-                img, x0_recon = self.p_sample(x_t=img, y=y, context=context, i=i, clip_denoised=clip_denoised)
+                img, x0_recon, conf1, conf2 = self.p_sample(x_t=img, y=y, context=context, i=i, clip_denoised=clip_denoised)
                               
-            return img
+            return img, conf1, conf2
 
     @torch.no_grad()
     def sample(self, y, context=None, clip_denoised=True, sample_mid_step=False):
