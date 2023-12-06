@@ -1,6 +1,6 @@
 
 data:
-  dataset_name: '123_UncerBBDM_2Unet_confloss_15k'
+  dataset_name: '123_UncerBBDM_2Unet_confloss_15k_lambda_0.01'
   dataset_type: 'custom_aligned'
   dataset_config:
     max_pixel_ori: 32767 # Pet 
