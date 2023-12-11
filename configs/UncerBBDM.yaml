@@ -1,6 +1,6 @@
 
 data:
-  dataset_name: '123_UncerBBDM_2Unet_confloss_15k_lambda_0.01'
+  dataset_name: '127_UncerBBDM_2Unet_confloss_15k_new'
   dataset_type: 'custom_aligned'
   dataset_config:
     max_pixel_ori: 32767 # Pet 
@@ -72,7 +72,7 @@ model:
         conv_resample: True
         dims: 2
         image_size: 64
-        in_channels: 6
+        in_channels: 9
         model_channels: 128
         num_head_channels: 64
         num_heads: 8

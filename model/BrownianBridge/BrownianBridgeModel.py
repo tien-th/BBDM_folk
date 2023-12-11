@@ -142,8 +142,9 @@ class BrownianBridgeModel(nn.Module):
         
         with torch.no_grad():
             objective_recon, conf = self.denoise_fn1(x_t, timesteps=t, context=context)
-            uncer_map = conf * objective_recon
-            x_t_hat = torch.cat([x_t, uncer_map], 1)
+            # uncer_map = conf * objective_recon
+            # x_t_hat = torch.cat([x_t, uncer_map], 1)
+            x_t_hat = torch.cat([x_t, conf, objective_recon], 1)
 
         objective_recon, conf = self.denoise_fn2(x_t_hat, timesteps=t, context=context)
 
@@ -161,7 +162,7 @@ class BrownianBridgeModel(nn.Module):
             raise NotImplementedError()
         
         # confidence loss
-        lambda1 = 0.01
+        lambda1 = 0.001
         sng = 1e-9
         
         conf_loss = -(1.0 / (h * w)) * torch.sum(torch.log(conf + sng))
@@ -230,8 +231,9 @@ class BrownianBridgeModel(nn.Module):
             t = torch.full((x_t.shape[0],), self.steps[i], device=x_t.device, dtype=torch.long)
             
             objective_recon, conf1 = self.denoise_fn1(x_t, timesteps=t, context=context)
-            uncer_map = conf1 * objective_recon
-            x_t_hat = torch.cat([x_t, uncer_map], 1)
+            # uncer_map = conf * objective_recon
+            # x_t_hat = torch.cat([x_t, uncer_map], 1)
+            x_t_hat = torch.cat([x_t, conf1, objective_recon], 1)
             
             objective_recon, conf2 = self.denoise_fn2(x_t_hat, timesteps=t, context=context)
             x0_recon = self.predict_x0_from_objective(x_t, y, t, objective_recon=objective_recon)
@@ -244,8 +246,9 @@ class BrownianBridgeModel(nn.Module):
             n_t = torch.full((x_t.shape[0],), self.steps[i+1], device=x_t.device, dtype=torch.long)
             
             objective_recon, conf1 = self.denoise_fn1(x_t, timesteps=t, context=context)
-            uncer_map = conf1 * objective_recon
-            x_t_hat = torch.cat([x_t, uncer_map], 1)
+            # uncer_map = conf * objective_recon
+            # x_t_hat = torch.cat([x_t, uncer_map], 1)
+            x_t_hat = torch.cat([x_t, conf1, objective_recon], 1)
             
             objective_recon, conf2 = self.denoise_fn2(x_t_hat, timesteps=t, context=context)
             x0_recon = self.predict_x0_from_objective(x_t, y, t, objective_recon=objective_recon)
