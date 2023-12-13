@@ -52,7 +52,7 @@ class ImagePathDataset(Dataset):
             
             image = transform(image) 
 
-            
+
         except BaseException as e:
             print(img_path)
 
