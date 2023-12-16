@@ -35,14 +35,10 @@ class ImagePathDataset(Dataset):
             transforms.ToTensor()
         ])
         
-        
-
         img_path = self.image_paths[index]
         image = None
         try:
             np_image = np.load(img_path, allow_pickle=True)
-            
-            
             
             # if self.type == 'pet': 
             #     np_image = np.log1p(np_image)
@@ -52,7 +48,6 @@ class ImagePathDataset(Dataset):
             
             image = transform(image) 
 
-            
         except BaseException as e:
             print(img_path)
 

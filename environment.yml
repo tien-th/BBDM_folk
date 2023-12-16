@@ -1,4 +1,4 @@
-name: BBDM
+name: LBBDM
 channels:
   - https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main
   - https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main/
@@ -97,4 +97,4 @@ dependencies:
     - werkzeug==2.2.3
     - yarl==1.8.2
     - zipp==3.15.0
-prefix: /home/x/.conda/envs/BBDM
+prefix: /home/x/.conda/envs/LBBDM

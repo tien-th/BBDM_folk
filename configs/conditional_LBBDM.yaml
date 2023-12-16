@@ -1,6 +1,6 @@
 
 data:
-  dataset_name: '1212_conditional_LBBDM'
+  dataset_name: '1212_conditional_LBBDM_???'
   dataset_type: 'custom_aligned'
   dataset_config:
     max_pixel_ori: 32767 # Pet 

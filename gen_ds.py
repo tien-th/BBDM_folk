@@ -12,15 +12,15 @@ def make_dir(path):
         os.makedirs(path)
 
 # ct_path = "/home/PET-CT/tiennh/test_code/ct" 
-ct_path = "/home/PET-CT/splited_data_15k/train/A"
+ct_path = "/home/PET-CT/splited_data_15k/val/A"
 
 # pet_path = "/home/PET-CT/tiennh/test_code/ctB"
-pet_path = "/home/PET-CT/splited_data_15k/train/B"
+pet_path = "/home/PET-CT/splited_data_15k/val/B"
 
 image_size = 256
 
-label_fol = "/home/PET-CT/tiennh/test_code/train/labels"
-img_fol = "/home/PET-CT/tiennh/test_code/train/images"
+label_fol = "/home/PET-CT/tiennh/test_code/dataset/valid/labels"
+img_fol = "/home/PET-CT/tiennh/test_code/dataset/valid/images"
 
 make_dir(label_fol)
 make_dir(img_fol)
@@ -84,8 +84,6 @@ def extract_bb(np_img):
         x, y, w, h = cv.boundingRect(contours[i])
         # cv.rectangle(all_bounding_boxes_img, (x, y), (x + w, y + h), (0, 0, 0), 1)
         all_bounding_boxes.append((x, y, x + w, y + h))
-    
-    
 
     sorted_boxes = sorted(all_bounding_boxes, key=lambda box: (box[2] - box[0]) * (box[3] - box[1]), reverse=True)
 
@@ -95,12 +93,15 @@ def extract_bb(np_img):
     filtered_boxes = [box for box in sorted_boxes if (box[2] - box[0]) * (box[3] - box[1]) >= min_area]
 
     # Initialize the list of non-overlapping boxes with the largest one (assuming the largest box is not too small)
-    non_overlapping_boxes = [bbox2yolo(filtered_boxes[0])]
+    non_overlapping_boxes = [filtered_boxes[0]]
 
     # Go through the rest of the boxes and add them if they do not overlap with the existing ones
     for current_box in filtered_boxes[1:]:
         if all(not are_boxes_overlapping(existing_box, current_box) for existing_box in non_overlapping_boxes):
-            non_overlapping_boxes.append(bbox2yolo(current_box))
+            non_overlapping_boxes.append(current_box)
+    
+    for i in range(len(non_overlapping_boxes)):
+        non_overlapping_boxes[i] = bbox2yolo(non_overlapping_boxes[i])
     
     return non_overlapping_boxes
 
