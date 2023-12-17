@@ -166,7 +166,7 @@ class BBDMRunner(DiffusionBaseRunner):
         x = x.to(self.config.training.device[0])
         x_cond = x_cond.to(self.config.training.device[0])
 
-        loss, additional_info = net(x, x_cond)
+        loss, additional_info = net(x, x_name, x_cond, stage)
         if write:
             self.writer.add_scalar(f'loss/{stage}', loss, step)
             if additional_info.__contains__('recloss_noise'):
@@ -200,7 +200,7 @@ class BBDMRunner(DiffusionBaseRunner):
         #                  writer_tag=f'{stage}_one_step_sample' if stage != 'test' else None)
         #
         # sample = samples[-1]
-        sample, add_cond = net.sample(x_cond, x, clip_denoised=self.config.testing.clip_denoised)
+        sample, add_cond = net.sample(x_cond, x_name, stage, clip_denoised=self.config.testing.clip_denoised)
         sample.to('cpu')
         add_cond.to('cpu')
         image_grid = get_image_grid(sample, grid_size, to_normal=self.config.data.dataset_config.to_normal)
@@ -241,7 +241,7 @@ class BBDMRunner(DiffusionBaseRunner):
             x_cond = x_cond.to(self.config.training.device[0])
 
             for j in range(sample_num):
-                sample, add_cond = net.sample(x_cond, x, clip_denoised=False)
+                sample, add_cond = net.sample(x_cond, x_name, 'val_step', clip_denoised=False)
                 # sample = net.sample_vqgan(x)
                 for i in range(batch_size):
                     condition = x_cond[i].detach().clone()

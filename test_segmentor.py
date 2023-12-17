@@ -8,9 +8,11 @@ import matplotlib.pyplot as plt
 import os
 import torch
 import pytorch_lightning as pl
+import numpy as np
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
 from torch.utils.data import DataLoader
 from pprint import pprint
+from tqdm import tqdm
 
 CHECKPOINT_PATH = '/home/PET-CT/thaind/ckpts'
 DATA_PATH = '/home/PET-CT/splited_data_15k'
@@ -174,39 +176,36 @@ def main():
     nconfig = dict2namespace(dict_config)
     ltbbdm = LatentBrownianBridgeModel(nconfig.model)
 
-    train_dataset = get_dataset_by_stage(DATA_PATH, 'train', ltbbdm, (IMAGE_SIZE, IMAGE_SIZE), CT_MAX, PET_MAX, True)
+    train_dataset = get_dataset_by_stage(DATA_PATH, 'train', ltbbdm, (IMAGE_SIZE, IMAGE_SIZE), CT_MAX, PET_MAX, False)
     val_dataset = get_dataset_by_stage(DATA_PATH, 'val', ltbbdm, (IMAGE_SIZE, IMAGE_SIZE), CT_MAX, PET_MAX, False)
     test_dataset = get_dataset_by_stage(DATA_PATH, 'test', ltbbdm, (IMAGE_SIZE, IMAGE_SIZE), CT_MAX, PET_MAX, False)
 
-    train_dataloader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=16)
+    train_dataloader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=16)
     valid_dataloader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=16)
     test_dataloader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=16)
 
-    model_name = "UnetPlusPlus"
+    CHECKPOINT_FILE_PATH = CHECKPOINT_PATH + "/Unet_resnet34/lightning_logs/version_0/checkpoints/epoch=3-step=6000.ckpt"
+    model_name = "Unet"
     encoder_name = "resnet34"
-    model = SegmentationModel(model_name, encoder_name, in_channels=3, out_classes=1)
+    model = SegmentationModel.load_from_checkpoint(CHECKPOINT_FILE_PATH, arch=model_name, encoder_name=encoder_name, in_channels=3, out_classes=1)
+    model.eval()
+    
+    SAVE_PATH = CHECKPOINT_PATH + "/Unet_resnet34/lightning_logs/version_0/samples/test"
+    
+    with torch.no_grad():
+        for batch in tqdm(test_dataloader):
+            logits = model(batch[0])
+            pr_masks = logits.sigmoid()
+            
+            n = pr_masks.shape[0]
 
-    trainer = pl.Trainer(
-        accelerator="gpu", 
-        devices=1,
-        max_epochs=100,
-        default_root_dir=os.path.join(CHECKPOINT_PATH, model_name),
-        callbacks=[
-            ModelCheckpoint(
-                save_weights_only=True, mode="max", monitor="valid_dataset_iou"
-            ),  # Save the best checkpoint based on the minimum loss recorded. Saves only weights and not optimizer
-            LearningRateMonitor("epoch"),
-        ],  # Log learning rate every epoch
-    )
-
-    trainer.logger._log_graph = True  # If True, we plot the computation graph in tensorboard
-    trainer.logger._default_hp_metric = None  # Optional logging argument that we don't need
-
-    trainer.fit(
-        model, 
-        train_dataloaders=train_dataloader, 
-        val_dataloaders=valid_dataloader,
-    )
+            for i in range(n):
+                directory = os.path.dirname(SAVE_PATH + f"/{batch[2][i]}.npy")
+                
+                if not os.path.exists(directory):
+                    os.makedirs(directory)
+                    
+                np.save(SAVE_PATH + f"/{batch[2][i]}.npy", pr_masks[i].numpy().squeeze())
     
 if __name__ == '__main__':
     main()

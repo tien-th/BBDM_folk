@@ -70,7 +70,9 @@ class SegmentedPETCTDataset(Dataset):
             print(ct_path)
             print(pet_path)
         
-        return ct_latent, segmented_map
+        image_name = Path(ct_path).stem
+        
+        return ct_latent, segmented_map, image_name
     
     def extract_segmented_map(self, np_img, np_latent):
         STATIC_THRESH_HOLD = 100
