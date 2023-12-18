@@ -182,7 +182,7 @@ def main():
     valid_dataloader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=16)
     test_dataloader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=16)
 
-    model_name = "UnetPlusPlus"
+    model_name = "MAnet"
     encoder_name = "resnet34"
     model = SegmentationModel(model_name, encoder_name, in_channels=3, out_classes=1)
 

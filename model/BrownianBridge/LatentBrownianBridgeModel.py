@@ -87,30 +87,8 @@ class LatentBrownianBridgeModel(BrownianBridgeModel):
         conditions = []
         
         for i in range(x_cond_latent.shape[0]):
-            bounding_boxes = []
-            tensor = torch.zeros(x_cond_latent.shape[2], x_cond_latent.shape[3])
-            
-            try:
-                with open(os.path.join(additional_condition_path, f'{x_name[i]}.txt'), 'r') as file:
-                    lines = file.readlines()
-                    
-                for line in lines:
-                    float_nums = [float(num) for num in line.split()]
-
-                    x1, y1, x2, y2 = (
-                        int((float_nums[1] - float_nums[3] / 2) * x_cond_latent.shape[3]),
-                        int((float_nums[2] - float_nums[4] / 2) * x_cond_latent.shape[2]),
-                        int((float_nums[1] + float_nums[3] / 2) * x_cond_latent.shape[3]),
-                        int((float_nums[2] + float_nums[4] / 2) * x_cond_latent.shape[2]),
-                    )
-
-                    bounding_boxes.append((x1, y1, x2, y2))
-                    
-                for box in bounding_boxes:
-                    x1, y1, x2, y2 = box
-                    tensor[y1:y2+1, x1:x2+1] = 1
-            except:
-                pass
+            np_cond = np.load(os.path.join(additional_condition_path, f'{x_name[i]}.npy'), allow_pickle=True)
+            tensor = torch.from_numpy(np_cond)
     
             conditions.append(tensor.unsqueeze(0).unsqueeze(0))
         

@@ -12,15 +12,15 @@ def make_dir(path):
         os.makedirs(path)
 
 # ct_path = "/home/PET-CT/tiennh/test_code/ct" 
-ct_path = "/home/PET-CT/splited_data_15k/val/A"
+ct_path = "/home/PET-CT/splited_data_15k/test/A"
 
 # pet_path = "/home/PET-CT/tiennh/test_code/ctB"
-pet_path = "/home/PET-CT/splited_data_15k/val/B"
+pet_path = "/home/PET-CT/splited_data_15k/test/B"
 
 image_size = 256
 
-label_fol = "/home/PET-CT/tiennh/test_code/dataset/valid/labels"
-img_fol = "/home/PET-CT/tiennh/test_code/dataset/valid/images"
+label_fol = "/home/PET-CT/tiennh/test_code/dataset/test/labels"
+img_fol = "/home/PET-CT/tiennh/test_code/dataset/test/images"
 
 make_dir(label_fol)
 make_dir(img_fol)
@@ -108,15 +108,15 @@ def extract_bb(np_img):
 for file in tqdm(os.listdir(pet_path)):
     if file.endswith(".npy"):
         try :
-            pet = np.load(os.path.join(pet_path, file), allow_pickle=True)
-            yolo_non_overlapping_boxes = extract_bb(pet) 
-            # Normalize boxes by image size
-            yolo_normalized_boxes = [(x / float(image_size), y / float(image_size), x2 / float(image_size), y2 / float(image_size)) for x, y, x2, y2 in yolo_non_overlapping_boxes]
+            # pet = np.load(os.path.join(pet_path, file), allow_pickle=True)
+            # yolo_non_overlapping_boxes = extract_bb(pet) 
+            # # Normalize boxes by image size
+            # yolo_normalized_boxes = [(x / float(image_size), y / float(image_size), x2 / float(image_size), y2 / float(image_size)) for x, y, x2, y2 in yolo_non_overlapping_boxes]
 
-            # Save normalized boxes to txt file
-            for box in yolo_normalized_boxes:
-                with open(os.path.join(label_fol, file[:-4] + ".txt"), "a") as f:
-                    f.write("0 " + " ".join([str(a) for a in box]) + "\n")
+            # # Save normalized boxes to txt file
+            # for box in yolo_normalized_boxes:
+            #     with open(os.path.join(label_fol, file[:-4] + ".txt"), "a") as f:
+            #         f.write("0 " + " ".join([str(a) for a in box]) + "\n")
             
             ct_img = np.load(os.path.join(ct_path, file), allow_pickle=True)
             x = ct_img / 2047.
