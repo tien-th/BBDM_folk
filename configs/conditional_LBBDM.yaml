@@ -1,6 +1,6 @@
 
 data:
-  dataset_name: '1216_detected_conditional_LBBDM'
+  dataset_name: '1219_detected_conditional_LBBDM_alpha_2'
   dataset_type: 'custom_aligned'
   dataset_config:
     max_pixel_ori: 32767 # Pet 
@@ -100,12 +100,12 @@ model:
   latent_before_quant_conv: False
   additional_condition_train_path: /home/PET-CT/tiennh/test_code/runs/detect/yolov8n_v8_50e_64_300_0.01_train_infer/labels
   additional_condition_val_path: /home/PET-CT/tiennh/test_code/runs/detect/yolov8n_v8_50e_64_300_0.01_valid_infer/labels
-  model_load_path: ./results/1216_detected_conditional_LBBDM/LBBDM-f4/checkpoint/last_model.pth
+  # model_load_path: ./results/1216_detected_conditional_LBBDM/LBBDM-f4/checkpoint/last_model.pth
   model_name: LBBDM-f4
   model_type: LBBDM
   normalize_latent: False
   only_load_latent_mean_std: False
-  optim_sche_load_path: ./results/1216_detected_conditional_LBBDM/LBBDM-f4/checkpoint/last_optim_sche.pth
+  # optim_sche_load_path: ./results/1216_detected_conditional_LBBDM/LBBDM-f4/checkpoint/last_optim_sche.pth
 
 runner: BBDMRunner
 testing: 
