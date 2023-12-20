@@ -99,7 +99,7 @@ model:
       n_embed: 8192
   latent_before_quant_conv: False
   additional_condition_train_path: /home/PET-CT/tiennh/test_code/runs/detect/yolov8n_v8_50e_64_300_0.01_train_infer/labels
-  additional_condition_val_path: /home/PET-CT/tiennh/test_code/runs/detect/yolov8n_v8_50e_64_300_0.01_valid_infer/labels
+  additional_condition_val_path: /home/PET-CT/tiennh/test_code/runs/detect/yolov8n_v8_50e_64_300_0.01_test_infer/labels
   # model_load_path: ./results/1216_detected_conditional_LBBDM/LBBDM-f4/checkpoint/last_model.pth
   model_name: LBBDM-f4
   model_type: LBBDM
