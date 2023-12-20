@@ -99,7 +99,7 @@ model:
       n_embed: 8192
   latent_before_quant_conv: False
   additional_condition_train_path: /home/PET-CT/thaind/ckpts/Unet_resnet34/lightning_logs/version_0/samples/train
-  additional_condition_val_path: /home/PET-CT/thaind/ckpts/Unet_resnet34/lightning_logs/version_0/samples/valid
+  additional_condition_val_path: /home/PET-CT/thaind/ckpts/Unet_resnet34/lightning_logs/version_0/samples/test
   # model_load_path: ./results/1216_detected_conditional_LBBDM/LBBDM-f4/checkpoint/last_model.pth
   model_name: LBBDM-f4
   model_type: LBBDM
