@@ -227,6 +227,7 @@ class BBDMRunner(DiffusionBaseRunner):
 
     @torch.no_grad()
     def sample_to_eval(self, net, test_loader, sample_path):
+        add_condition_path = make_dir(os.path.join(sample_path, f'additional_condition'))
         condition_path = make_dir(os.path.join(sample_path, f'condition'))
         gt_path = make_dir(os.path.join(sample_path, 'ground_truth'))
         result_path = make_dir(os.path.join(sample_path, str(self.config.model.BB.params.sample_step)))
@@ -248,6 +249,7 @@ class BBDMRunner(DiffusionBaseRunner):
                     gt = x[i]
                     result = sample[i]
                     if j == 0:
+                        save_single_image(add_cond[i], add_condition_path, f'{x_name[i]}.npy', max_pixel=1,to_normal=False)
                         save_single_image(condition, condition_path, f'{x_cond_name[i]}.npy', max_pixel= self.config.data.dataset_config.max_pixel_cond,to_normal=False)
                         save_single_image(gt, gt_path, f'{x_name[i]}.npy', max_pixel= self.config.data.dataset_config.max_pixel_ori , to_normal=True)
                     if sample_num > 1:
