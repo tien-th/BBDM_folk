@@ -1,6 +1,6 @@
 
 data:
-  dataset_name: '1219_detected_conditional_LBBDM_alpha_2'
+  dataset_name: '1216_detected_conditional_LBBDM'
   dataset_type: 'custom_aligned'
   dataset_config:
     max_pixel_ori: 32767 # Pet 

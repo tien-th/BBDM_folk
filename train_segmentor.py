@@ -33,7 +33,8 @@ class SegmentationModel(pl.LightningModule):
         self.register_buffer("mean", torch.tensor(params["mean"]).view(1, 3, 1, 1))
 
         # for image segmentation dice loss could be the best first choice
-        self.loss_fn = smp.losses.DiceLoss(smp.losses.BINARY_MODE, from_logits=True)
+        # self.loss_fn = smp.losses.DiceLoss(smp.losses.BINARY_MODE, from_logits=True)
+        self.loss_fn = smp.losses.FocalLoss(smp.losses.BINARY_MODE)
 
     def forward(self, image):
         # normalize image here
@@ -182,7 +183,7 @@ def main():
     valid_dataloader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=16)
     test_dataloader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=16)
 
-    model_name = "UnetPlusPlus"
+    model_name = "Unet"
     encoder_name = "resnet34"
     model = SegmentationModel(model_name, encoder_name, in_channels=3, out_classes=1)
 
