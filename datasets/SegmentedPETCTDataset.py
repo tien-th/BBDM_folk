@@ -64,7 +64,8 @@ class SegmentedPETCTDataset(Dataset):
             if p:
                 np_segmented_map = np.fliplr(np_segmented_map)
                 
-            segmented_map = torch.from_numpy(np_segmented_map.copy()).unsqueeze(0)
+            # segmented_map = torch.from_numpy(np_segmented_map.copy()).unsqueeze(0)
+            segmented_map = torch.from_numpy(np_segmented_map.copy())
             
         except BaseException as e:
             print(ct_path)
@@ -74,15 +75,35 @@ class SegmentedPETCTDataset(Dataset):
         
         return ct_latent, segmented_map, image_name
     
+    # def extract_segmented_map(self, np_img, np_latent):
+    #     STATIC_THRESH_HOLD = 100
+        
+    #     clone_img = np_img.copy() 
+    #     clone_img = (clone_img * 255.).astype(np.uint8)
+        
+    #     _, thresh = cv.threshold(clone_img, STATIC_THRESH_HOLD, 255, 0)
+    #     thresh = cv.resize(thresh, (np_latent.shape[0], np_latent.shape[1]))
+    #     thresh[thresh > 0] = 1
+        
+    #     return thresh
+    
     def extract_segmented_map(self, np_img, np_latent):
-        STATIC_THRESH_HOLD = 100
+        STATIC_THRESH_HOLD_1 = 50
+        STATIC_THRESH_HOLD_2 = 100
         
-        clone_img = np_img.copy() 
-        clone_img = (clone_img * 255.).astype(np.uint8)
+        clone_img_1 = np_img.copy() 
+        clone_img_1 = (clone_img_1 * 255.).astype(np.uint8)
         
-        _, thresh = cv.threshold(clone_img, STATIC_THRESH_HOLD, 255, 0)
-        thresh = cv.resize(thresh, (np_latent.shape[0], np_latent.shape[1]))
-        thresh[thresh > 0] = 1
+        _, thresh_1 = cv.threshold(clone_img_1, STATIC_THRESH_HOLD_1, 255, 0)
+        thresh_1 = cv.resize(thresh_1, (np_latent.shape[0], np_latent.shape[1]))
+        thresh_1[thresh_1 > 0] = 1
         
-        return thresh
+        clone_img_2 = np_img.copy() 
+        clone_img_2 = (clone_img_2 * 255.).astype(np.uint8)
+        
+        _, thresh_2 = cv.threshold(clone_img_2, STATIC_THRESH_HOLD_2, 255, 0)
+        thresh_2 = cv.resize(thresh_2, (np_latent.shape[0], np_latent.shape[1]))
+        thresh_2[thresh_2 > 0] = 1
+        
+        return thresh_1 + thresh_2
       

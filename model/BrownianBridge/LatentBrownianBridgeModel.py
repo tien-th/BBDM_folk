@@ -88,6 +88,8 @@ class LatentBrownianBridgeModel(BrownianBridgeModel):
         
         for i in range(x_cond_latent.shape[0]):
             np_cond = np.load(os.path.join(additional_condition_path, f'{x_name[i]}.npy'), allow_pickle=True)
+            np_cond[np_cond < 0.5] = 0
+            
             tensor = torch.from_numpy(np_cond)
     
             conditions.append(tensor.unsqueeze(0).unsqueeze(0))
