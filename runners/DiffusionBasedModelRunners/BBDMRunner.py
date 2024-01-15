@@ -200,6 +200,7 @@ class BBDMRunner(DiffusionBaseRunner):
         #                  writer_tag=f'{stage}_one_step_sample' if stage != 'test' else None)
         #
         # sample = samples[-1]
+        # sample, add_cond = net.sample(x_cond, x, stage, clip_denoised=self.config.testing.clip_denoised)
         sample, add_cond = net.sample(x_cond, x_name, stage, clip_denoised=self.config.testing.clip_denoised)
         sample.to('cpu')
         add_cond.to('cpu')
@@ -220,10 +221,17 @@ class BBDMRunner(DiffusionBaseRunner):
         im.save(os.path.join(sample_path, 'ground_truth.png'))
         if stage != 'test':
             self.writer.add_image(f'{stage}_ground_truth', image_grid, self.global_step, dataformats='HWC')
-            
-        image_grid = get_image_grid(add_cond, grid_size, to_normal=False)
+        
+        segment_map = add_cond[:, 0].unsqueeze(1)
+        image_grid = get_image_grid(segment_map, grid_size, to_normal=False)
         im = Image.fromarray(image_grid)
-        im.save(os.path.join(sample_path, 'additional_condition.png'))
+        im.save(os.path.join(sample_path, 'segmentation_map.png'))
+        
+        att_map = add_cond[:, 1].unsqueeze(1)
+        att_map = ((att_map - att_map.min()) / (att_map.max() - att_map.min())).clamp_(0, 1.)
+        image_grid = get_image_grid(att_map, grid_size, to_normal=False)
+        im = Image.fromarray(image_grid)
+        im.save(os.path.join(sample_path, 'attenuation_map.png'))
 
     @torch.no_grad()
     def sample_to_eval(self, net, test_loader, sample_path):
@@ -242,6 +250,7 @@ class BBDMRunner(DiffusionBaseRunner):
             x_cond = x_cond.to(self.config.training.device[0])
 
             for j in range(sample_num):
+                # sample, add_cond = net.sample(x_cond, x, 'val_step', clip_denoised=False)
                 sample, add_cond = net.sample(x_cond, x_name, 'val_step', clip_denoised=False)
                 # sample = net.sample_vqgan(x)
                 for i in range(batch_size):

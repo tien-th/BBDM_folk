@@ -185,7 +185,10 @@ def main():
     model_name = "Unet"
     encoder_name = "resnet34"
     # model = SegmentationModel(model_name, encoder_name, in_channels=3, out_classes=1)
-    model = SegmentationModel(model_name, encoder_name, in_channels=3, out_classes=3)
+    # model = SegmentationModel(model_name, encoder_name, in_channels=3, out_classes=3)
+    
+    CHECKPOINT_FILE_PATH = CHECKPOINT_PATH + "/Unet/lightning_logs/version_2/checkpoints/epoch=2-step=4500.ckpt"
+    model = SegmentationModel.load_from_checkpoint(CHECKPOINT_FILE_PATH, arch=model_name, encoder_name=encoder_name, in_channels=3, out_classes=3)
 
     trainer = pl.Trainer(
         accelerator="gpu", 

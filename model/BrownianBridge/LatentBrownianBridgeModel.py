@@ -7,6 +7,9 @@ import cv2 as cv
 import numpy as np
 import os
 from tqdm.autonotebook import tqdm
+from scipy.interpolate import interp1d
+import torchvision.transforms as transforms
+from PIL import Image
 
 from model.BrownianBridge.BrownianBridgeModel import BrownianBridgeModel
 from model.BrownianBridge.base.modules.encoders.modules import SpatialRescaler
@@ -64,8 +67,11 @@ class LatentBrownianBridgeModel(BrownianBridgeModel):
         with torch.no_grad():
             x_latent = self.encode(x, cond=False)
             x_cond_latent = self.encode(x_cond, cond=True)
+            # add_cond = self.get_additional_condition(x_cond, x_cond_latent)
             # add_cond = self.get_additional_condition(x, x_cond_latent)
             add_cond = self.get_additional_condition(x_name, x_cond_latent, stage)
+            att_map = self.get_attenuation_map(x_cond, x_cond_latent)
+            add_cond = torch.cat([add_cond, att_map], dim=1) 
         context = self.get_cond_stage_context(x_cond)
         return super().forward(x_latent.detach(), x_cond_latent.detach(), add_cond, context)
 
@@ -78,6 +84,83 @@ class LatentBrownianBridgeModel(BrownianBridgeModel):
             context = None
         return context
 
+    def attenuationCT_to_511(self, KVP, reresized):
+        # Values from: Accuracy of CT-based attenuation correction in PET/CT bone imaging
+        if KVP == 100:
+            a = [9.3e-5, 4e-5, 0.5e-5]
+            b = [0.093, 0.093, 0.128]
+        elif KVP == 80:
+            a = [9.3e-5, 3.28e-5, 0.41e-5]
+            b = [0.093, 0.093, 0.122]
+        elif KVP == 120:
+            a = [9.3e-5, 4.71e-5, 0.589e-5]
+            b = [0.093, 0.093, 0.134]
+        elif KVP == 140:
+            a = [9.3e-5, 5.59e-5, 0.698e-5]
+            b = [0.093, 0.093, 0.142]
+        else:
+            print('Unsupported kVp, interpolating initial values')
+            a1 = [9.3e-5, 3.28e-5, 0.41e-5]
+            b1 = [0.093, 0.093, 0.122]
+            a2 = [9.3e-5, 4e-5, 0.5e-5]
+            b2 = [0.093, 0.093, 0.128]
+            a3 = [9.3e-5, 4.71e-5, 0.589e-5]
+            b3 = [0.093, 0.093, 0.134]
+            a4 = [9.3e-5, 5.59e-5, 0.698e-5]
+            b4 = [0.093, 0.093, 0.142]
+            aa = np.array([a1, a2, a3, a4])
+            bb = np.array([b1, b2, b3, b4])
+            c = np.array([80, 100, 120, 140])
+            a = np.zeros(3)
+            b = np.zeros(3)
+            for kk in range(3):
+                a[kk] = np.interp(KVP, c, aa[:, kk])
+                b[kk] = np.interp(KVP, c, bb[:, kk])
+
+        # Rời rạc các điểm cực đại và cực tiểu trên trục Hounsfield Unit (HU)
+        z = np.array([[-1000, b[0] - 1000 * a[0]],
+                    [0, b[1]],
+                    [1000, b[1] + a[1] * 1000],
+                    [3000, b[1] + a[1] * 1000 + a[2] * 2000]])
+
+        # Tạo điểm giả mạo cho việc nội suy tuyến tính
+        tarkkuus = 0.1
+        vali = np.arange(-1000, 3000 + tarkkuus, tarkkuus)
+        inter = interp1d(z[:, 0], z[:, 1], kind='linear', fill_value='extrapolate')(vali)
+
+        # Thực hiện Trilinear Interpolation
+        attenuation_factors = np.interp(reresized.flatten(), vali, inter).reshape(reresized.shape)
+
+        return attenuation_factors
+
+    # def get_additional_condition(self, x_cond, x_cond_latent):
+    def get_attenuation_map(self, x_cond, x_cond_latent):  
+        conditions = []
+        
+        for i in range(x_cond.shape[0]):
+            rescale_slope = 1.
+            rescale_intercept = -1024.
+
+            np_x_cond = x_cond[i].squeeze(0).cpu().numpy()
+            np_x_cond = np_x_cond * 2047.
+            HU_map = np_x_cond * rescale_slope + rescale_intercept
+
+            KVP = 140  # Giá trị kVp
+            attenuation_factors = self.attenuationCT_to_511(KVP, HU_map)
+            attenuation_factors = np.exp(-attenuation_factors)
+            
+            transform = transforms.Compose([
+                transforms.Resize((x_cond_latent.shape[2], x_cond_latent.shape[3])),
+                transforms.ToTensor()
+            ])
+
+            attenuation_factors = Image.fromarray(attenuation_factors)
+            attenuation_factors = transform(attenuation_factors)
+            
+            conditions.append(attenuation_factors.unsqueeze(0))
+            
+        return torch.cat(conditions, dim=0).to(x_cond_latent.device) 
+
     def get_additional_condition(self, x_name, x_cond_latent, stage):    
         additional_condition_path = self.additional_condition_val_path
         
@@ -88,7 +171,8 @@ class LatentBrownianBridgeModel(BrownianBridgeModel):
         
         for i in range(x_cond_latent.shape[0]):
             np_cond = np.load(os.path.join(additional_condition_path, f'{x_name[i]}.npy'), allow_pickle=True)
-            np_cond[np_cond < 0.5] = 0
+            # np_cond[np_cond < 0.5] = 0
+            # np_cond = (np_cond * 0.5).astype(np.float32)
             
             tensor = torch.from_numpy(np_cond)
     
@@ -149,18 +233,25 @@ class LatentBrownianBridgeModel(BrownianBridgeModel):
     #     return torch.cat(conditions, dim=0).to(x_cond_latent.device) 
 
     # def get_segmented_condition(self, x, x_cond_latent):
-    #     STATIC_THRESH_HOLD = 100
+    #     STATIC_THRESH_HOLD_1 = 50
+    #     STATIC_THRESH_HOLD_2 = 100
     #     conditions = []
         
     #     for i in range(x.shape[0]):
-    #         x_clone = x[i].clone()
-    #         x_norm = x_clone.mul_(0.5).add_(0.5).clamp_(0, 1.).mul(255).permute(1, 2, 0).to('cpu').numpy()
-    #         _, thresh = cv.threshold(x_norm, STATIC_THRESH_HOLD, 255, 0)
+    #         x_norm_1 = x[i].clone().mul_(0.5).add_(0.5).clamp_(0, 1.).mul(255).permute(1, 2, 0).to('cpu').numpy()
+    #         x_norm_2 = x[i].clone().mul_(0.5).add_(0.5).clamp_(0, 1.).mul(255).permute(1, 2, 0).to('cpu').numpy()
             
-    #         thresh = cv.resize(thresh, (x_cond_latent.shape[2], x_cond_latent.shape[3]))
-    #         thresh[thresh > 0] = 1
+    #         _, thresh_1 = cv.threshold(x_norm_1, STATIC_THRESH_HOLD_1, 255, 0)
+            
+    #         thresh_1 = cv.resize(thresh_1, (x_cond_latent.shape[2], x_cond_latent.shape[3]))
+    #         thresh_1[thresh_1 > 0] = 1
+            
+    #         _, thresh_2 = cv.threshold(x_norm_2, STATIC_THRESH_HOLD_2, 255, 0)
+            
+    #         thresh_2 = cv.resize(thresh_2, (x_cond_latent.shape[2], x_cond_latent.shape[3]))
+    #         thresh_2[thresh_2 > 0] = 1
   
-    #         conditions.append(torch.from_numpy(thresh).unsqueeze(0).unsqueeze(0))
+    #         conditions.append(torch.from_numpy((thresh_1 + thresh_2) / 2).unsqueeze(0).unsqueeze(0))
         
     #     return torch.cat(conditions, dim=0).to(x_cond_latent.device)
     
@@ -194,10 +285,14 @@ class LatentBrownianBridgeModel(BrownianBridgeModel):
         return out
 
     @torch.no_grad()
+    # def sample(self, x_cond, x, stage, clip_denoised=False, sample_mid_step=False):
     def sample(self, x_cond, x_name, stage, clip_denoised=False, sample_mid_step=False):
         x_cond_latent = self.encode(x_cond, cond=True)
+        # add_cond = self.get_additional_condition(x_cond, x_cond_latent)
         # add_cond = self.get_additional_condition(x, x_cond_latent)
         add_cond = self.get_additional_condition(x_name, x_cond_latent, stage)
+        att_map = self.get_attenuation_map(x_cond, x_cond_latent)
+        add_cond = torch.cat([add_cond, att_map], dim=1)
         if sample_mid_step:
             temp, one_step_temp = self.p_sample_loop(y=x_cond_latent,
                                                      add_cond=add_cond,

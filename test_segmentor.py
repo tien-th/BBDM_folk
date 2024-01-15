@@ -35,7 +35,9 @@ class SegmentationModel(pl.LightningModule):
         self.register_buffer("mean", torch.tensor(params["mean"]).view(1, 3, 1, 1))
 
         # for image segmentation dice loss could be the best first choice
-        self.loss_fn = smp.losses.DiceLoss(smp.losses.BINARY_MODE, from_logits=True)
+        # self.loss_fn = smp.losses.DiceLoss(smp.losses.BINARY_MODE, from_logits=True)
+        # self.loss_fn = smp.losses.DiceLoss(smp.losses.MULTICLASS_MODE, from_logits=True)
+        self.loss_fn = torch.nn.CrossEntropyLoss()
 
     def forward(self, image):
         # normalize image here
@@ -184,18 +186,21 @@ def main():
     valid_dataloader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=16)
     test_dataloader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=16)
 
-    CHECKPOINT_FILE_PATH = CHECKPOINT_PATH + "/Unet_resnet34/lightning_logs/version_0/checkpoints/epoch=3-step=6000.ckpt"
+    CHECKPOINT_FILE_PATH = CHECKPOINT_PATH + "/Unet/lightning_logs/version_3/checkpoints/epoch=1-step=3000.ckpt"
     model_name = "Unet"
     encoder_name = "resnet34"
-    model = SegmentationModel.load_from_checkpoint(CHECKPOINT_FILE_PATH, arch=model_name, encoder_name=encoder_name, in_channels=3, out_classes=1)
+    # model = SegmentationModel.load_from_checkpoint(CHECKPOINT_FILE_PATH, arch=model_name, encoder_name=encoder_name, in_channels=3, out_classes=1)
+    model = SegmentationModel.load_from_checkpoint(CHECKPOINT_FILE_PATH, arch=model_name, encoder_name=encoder_name, in_channels=3, out_classes=3)
     model.eval()
     
-    SAVE_PATH = CHECKPOINT_PATH + "/Unet_resnet34/lightning_logs/version_0/samples/test"
+    SAVE_PATH = CHECKPOINT_PATH + "/Unet/lightning_logs/version_3/samples/test"
     
     with torch.no_grad():
         for batch in tqdm(test_dataloader):
             logits = model(batch[0])
-            pr_masks = logits.sigmoid()
+            
+            # pr_masks = logits.sigmoid()
+            pr_masks = torch.argmax(logits, dim=1)
             
             n = pr_masks.shape[0]
 

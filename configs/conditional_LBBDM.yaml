@@ -1,6 +1,6 @@
 
 data:
-  dataset_name: '1226_segmented_conditional_LBBDM_focal_loss_0.5'
+  dataset_name: '111_segmented_conditional_LBBDM_attenuation_segment_weight_2'
   dataset_type: 'custom_aligned'
   dataset_config:
     max_pixel_ori: 32767 # Pet 
@@ -48,7 +48,7 @@ model:
         conv_resample: True
         dims: 2
         image_size: 64
-        in_channels: 4
+        in_channels: 5
         model_channels: 128
         num_head_channels: 64
         num_heads: 8
@@ -98,14 +98,14 @@ model:
         target: torch.nn.Identity
       n_embed: 8192
   latent_before_quant_conv: False
-  additional_condition_train_path: /home/PET-CT/thaind/ckpts/Unet/lightning_logs/version_0/samples/train
-  additional_condition_val_path: /home/PET-CT/thaind/ckpts/Unet/lightning_logs/version_0/samples/test
-  # model_load_path: ./results/1216_detected_conditional_LBBDM/LBBDM-f4/checkpoint/last_model.pth
+  additional_condition_train_path: /home/PET-CT/thaind/ckpts/Unet_resnet34/lightning_logs/version_0/samples/train
+  additional_condition_val_path: /home/PET-CT/thaind/ckpts/Unet_resnet34/lightning_logs/version_0/samples/test
+  # model_load_path: ./results/13_segmented_conditional_LBBDM/LBBDM-f4/checkpoint/last_model.pth
   model_name: LBBDM-f4
   model_type: LBBDM
   normalize_latent: False
   only_load_latent_mean_std: False
-  # optim_sche_load_path: ./results/1216_detected_conditional_LBBDM/LBBDM-f4/checkpoint/last_optim_sche.pth
+  # optim_sche_load_path: ./results/13_segmented_conditional_LBBDM/LBBDM-f4/checkpoint/last_optim_sche.pth
 
 runner: BBDMRunner
 testing: 
