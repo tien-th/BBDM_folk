@@ -117,9 +117,10 @@ class BrownianBridgeModel(nn.Module):
         objective_recon = self.denoise_fn(x_t_hat, timesteps=t, context=context)
 
         if self.loss_type == 'l1':
-            alpha = 2
-            recloss = (torch.pow(alpha, add_cond[:, 1, :, :].unsqueeze(1)) * (objective - objective_recon)).abs().mean()
-            # recloss = (objective - objective_recon).abs().mean()
+            # alpha = 1.5
+            # recloss = (torch.pow(alpha, add_cond[:, 0, :, :].unsqueeze(1)) * (objective - objective_recon)).abs().mean()
+            # recloss = (torch.pow(alpha, add_cond) * (objective - objective_recon)).abs().mean()
+            recloss = (objective - objective_recon).abs().mean()
         elif self.loss_type == 'l2':
             recloss = F.mse_loss(objective, objective_recon)
         else:

@@ -3,15 +3,15 @@ import pdb
 import random
 import torch
 import torch.nn as nn
-import cv2 as cv
-import numpy as np
-import os
 from tqdm.autonotebook import tqdm
 from scipy.interpolate import interp1d
 import torchvision.transforms as transforms
 from PIL import Image
+import cv2 as cv
+import numpy as np
+import os
 
-from model.BrownianBridge.BrownianBridgeModel import BrownianBridgeModel
+from model.BrownianBridge.ConditionalDDPM import ConditionalDDPM
 from model.BrownianBridge.base.modules.encoders.modules import SpatialRescaler
 from model.VQGAN.vqgan import VQModel
 
@@ -22,13 +22,13 @@ def disabled_train(self, mode=True):
     return self
 
 
-class LatentBrownianBridgeModel(BrownianBridgeModel):
+class LDM(ConditionalDDPM):
     def __init__(self, model_config):
         super().__init__(model_config)
-
+        
         self.additional_condition_train_path = model_config.additional_condition_train_path
         self.additional_condition_val_path = model_config.additional_condition_val_path
-        
+
         self.vqgan = VQModel(**vars(model_config.VQGAN.params)).eval()
         self.vqgan.train = disabled_train
         for param in self.vqgan.parameters():
@@ -43,7 +43,8 @@ class LatentBrownianBridgeModel(BrownianBridgeModel):
         elif self.condition_key == 'SpatialRescaler':
             self.cond_stage_model = SpatialRescaler(**vars(model_config.CondStageParams))
         else:
-            raise NotImplementedError
+            self.cond_stage_model = None
+        #     raise NotImplementedError
 
     def get_ema_net(self):
         return self
@@ -67,11 +68,9 @@ class LatentBrownianBridgeModel(BrownianBridgeModel):
         with torch.no_grad():
             x_latent = self.encode(x, cond=False)
             x_cond_latent = self.encode(x_cond, cond=True)
-            # add_cond = self.get_additional_condition(x_cond, x_cond_latent)
-            # add_cond = self.get_additional_condition(x, x_cond_latent)
-            add_cond = self.get_additional_condition(x_name, x_cond_latent, stage)
-            att_map = self.get_attenuation_map(x_cond, x_cond_latent)
-            add_cond = torch.cat([add_cond, att_map], dim=1) 
+        add_cond = self.get_additional_condition(x_name, x_cond_latent, stage)
+        att_map = self.get_attenuation_map(x_cond, x_cond_latent)
+        add_cond = torch.cat([add_cond, att_map], dim=1) 
         context = self.get_cond_stage_context(x_cond)
         return super().forward(x_latent.detach(), x_cond_latent.detach(), add_cond, context)
 
@@ -182,82 +181,7 @@ class LatentBrownianBridgeModel(BrownianBridgeModel):
             conditions.append(tensor.unsqueeze(0).unsqueeze(0))
         
         return torch.cat(conditions, dim=0).to(x_cond_latent.device) 
-            
-    # def get_additional_condition(self, x, x_cond_latent):
-    #     return self.get_segmented_condition(x, x_cond_latent)
-    #     # return self.get_detected_condition(x, x_cond_latent)
-    
-    # def get_detected_condition(self, x, x_cond_latent):
-    #     STATIC_THRESH_HOLD = 100
-    #     MIN_AREA = 10
-        
-    #     def are_boxes_overlapping(box1, box2):
-    #         return not (box2[0] > box1[2] or box2[2] < box1[0] or box2[1] > box1[3] or box2[3] < box1[1])
-        
-    #     conditions = []
-        
-    #     for i in range(x.shape[0]):
-    #         x_clone = x[i].clone()
-    #         x_norm = x_clone.mul_(0.5).add_(0.5).clamp_(0, 1.).mul(255).permute(1, 2, 0).to('cpu').numpy()
-            
-    #         _, thresh = cv.threshold(x_norm, STATIC_THRESH_HOLD, 255, 0)
-    #         thresh = thresh.astype(np.uint8)
-            
-    #         contours, _ = cv.findContours(thresh, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
-            
-    #         all_bounding_boxes = []
 
-    #         for i in range(len(contours)):
-    #             x1, y1, w1, h1 = cv.boundingRect(contours[i])
-    #             all_bounding_boxes.append((x1, y1, x1 + w1, y1 + h1))
-
-    #         sorted_boxes = sorted(all_bounding_boxes, key=lambda box: (box[2] - box[0]) * (box[3] - box[1]), reverse=True)
-    #         filtered_boxes = [box for box in sorted_boxes if (box[2] - box[0]) * (box[3] - box[1]) >= MIN_AREA]
-            
-    #         tensor = torch.zeros(x_cond_latent.shape[2], x_cond_latent.shape[3])
-            
-    #         if len(filtered_boxes) > 0:
-    #             non_overlapping_boxes = [filtered_boxes[0]]
-
-    #             for current_box in filtered_boxes[1:]:
-    #                 if all(not are_boxes_overlapping(existing_box, current_box) for existing_box in non_overlapping_boxes):
-    #                     non_overlapping_boxes.append(current_box)
-                
-    #             for box in non_overlapping_boxes:
-    #                 x1, y1, x2, y2 = box
-    #                 x1 = int(1. * x1 / x.shape[3] * x_cond_latent.shape[3])
-    #                 x2 = int(1. * x2 / x.shape[3] * x_cond_latent.shape[3])
-    #                 y1 = int(1. * y1 / x.shape[2] * x_cond_latent.shape[2])
-    #                 y2 = int(1. * y2 / x.shape[2] * x_cond_latent.shape[2])
-    #                 tensor[y1:y2+1, x1:x2+1] = 1
-    
-    #         conditions.append(tensor.unsqueeze(0).unsqueeze(0))
-            
-    #     return torch.cat(conditions, dim=0).to(x_cond_latent.device) 
-
-    # def get_segmented_condition(self, x, x_cond_latent):
-    #     STATIC_THRESH_HOLD_1 = 50
-    #     STATIC_THRESH_HOLD_2 = 100
-    #     conditions = []
-        
-    #     for i in range(x.shape[0]):
-    #         x_norm_1 = x[i].clone().mul_(0.5).add_(0.5).clamp_(0, 1.).mul(255).permute(1, 2, 0).to('cpu').numpy()
-    #         x_norm_2 = x[i].clone().mul_(0.5).add_(0.5).clamp_(0, 1.).mul(255).permute(1, 2, 0).to('cpu').numpy()
-            
-    #         _, thresh_1 = cv.threshold(x_norm_1, STATIC_THRESH_HOLD_1, 255, 0)
-            
-    #         thresh_1 = cv.resize(thresh_1, (x_cond_latent.shape[2], x_cond_latent.shape[3]))
-    #         thresh_1[thresh_1 > 0] = 1
-            
-    #         _, thresh_2 = cv.threshold(x_norm_2, STATIC_THRESH_HOLD_2, 255, 0)
-            
-    #         thresh_2 = cv.resize(thresh_2, (x_cond_latent.shape[2], x_cond_latent.shape[3]))
-    #         thresh_2[thresh_2 > 0] = 1
-  
-    #         conditions.append(torch.from_numpy((thresh_1 + thresh_2) / 2).unsqueeze(0).unsqueeze(0))
-        
-    #     return torch.cat(conditions, dim=0).to(x_cond_latent.device)
-    
     @torch.no_grad()
     def encode(self, x, cond=True, normalize=None):
         normalize = self.model_config.normalize_latent if normalize is None else normalize
@@ -288,11 +212,8 @@ class LatentBrownianBridgeModel(BrownianBridgeModel):
         return out
 
     @torch.no_grad()
-    # def sample(self, x_cond, x, stage, clip_denoised=False, sample_mid_step=False):
     def sample(self, x_cond, x_name, stage, clip_denoised=False, sample_mid_step=False):
         x_cond_latent = self.encode(x_cond, cond=True)
-        # add_cond = self.get_additional_condition(x_cond, x_cond_latent)
-        # add_cond = self.get_additional_condition(x, x_cond_latent)
         add_cond = self.get_additional_condition(x_name, x_cond_latent, stage)
         att_map = self.get_attenuation_map(x_cond, x_cond_latent)
         add_cond = torch.cat([add_cond, att_map], dim=1)
@@ -316,16 +237,15 @@ class LatentBrownianBridgeModel(BrownianBridgeModel):
                 with torch.no_grad():
                     out = self.decode(one_step_temp[i].detach(), cond=False)
                 one_step_samples.append(out.to('cpu'))
-            return out_samples, one_step_samples, add_cond
+            return out_samples, one_step_samples
         else:
             temp = self.p_sample_loop(y=x_cond_latent,
-                                      add_cond=add_cond,
                                       context=self.get_cond_stage_context(x_cond),
                                       clip_denoised=clip_denoised,
                                       sample_mid_step=sample_mid_step)
             x_latent = temp
             out = self.decode(x_latent, cond=False)
-            return out, add_cond
+            return out
 
     @torch.no_grad()
     def sample_vqgan(self, x):

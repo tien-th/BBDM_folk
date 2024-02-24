@@ -7,6 +7,7 @@ from PIL import Image
 from Register import Registers
 from model.BrownianBridge.BrownianBridgeModel import BrownianBridgeModel
 from model.BrownianBridge.LatentBrownianBridgeModel import LatentBrownianBridgeModel
+from model.BrownianBridge.LDM import LDM
 from runners.DiffusionBasedModelRunners.DiffusionBaseRunner import DiffusionBaseRunner
 from runners.utils import weights_init, get_optimizer, get_dataset, make_dir, get_image_grid, save_single_image
 from tqdm.autonotebook import tqdm
@@ -23,6 +24,8 @@ class BBDMRunner(DiffusionBaseRunner):
             bbdmnet = BrownianBridgeModel(config.model).to(config.training.device[0])
         elif config.model.model_type == "LBBDM":
             bbdmnet = LatentBrownianBridgeModel(config.model).to(config.training.device[0])
+        elif config.model.model_type == "LDM": 
+            bbdmnet = LDM(config.model).to(config.training.device[0])
         else:
             raise NotImplementedError
         bbdmnet.apply(weights_init)
@@ -223,6 +226,7 @@ class BBDMRunner(DiffusionBaseRunner):
             self.writer.add_image(f'{stage}_ground_truth', image_grid, self.global_step, dataformats='HWC')
         
         segment_map = add_cond[:, 0].unsqueeze(1)
+        # segment_map = add_cond
         image_grid = get_image_grid(segment_map, grid_size, to_normal=False)
         im = Image.fromarray(image_grid)
         im.save(os.path.join(sample_path, 'segmentation_map.png'))

@@ -4,7 +4,7 @@ import lpips
 import torch
 from tqdm.autonotebook import tqdm
 
-loss_fn = lpips.LPIPS(net='alex', version='0.1').to(torch.device('cuda:0'))
+# loss_fn = lpips.LPIPS(net='alex', version='0.1').to(torch.device('cuda:0'))
 
 
 @torch.no_grad()

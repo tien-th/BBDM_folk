@@ -38,7 +38,7 @@ class SegmentedPETCTDataset(Dataset):
         ct_path = self.ct_paths[index]
         pet_path = self.pet_paths[index]
         
-        ct_latent, segmented_map = None, None
+        ct_image, segmented_map = None, None
         
         try:
             np_ct_image = np.load(ct_path, allow_pickle=True)
@@ -46,20 +46,11 @@ class SegmentedPETCTDataset(Dataset):
 
             ct_image = Image.fromarray(np_ct_image) 
             ct_image = transform(ct_image) 
-            ct_image = ct_image.unsqueeze(0)
-
-            ct_latent = self.enc_dec.encode(ct_image)
-            ct_latent = (ct_latent / 4. + 0.5).clamp(0., 1.)
-            
-            np_ct_latent = ct_latent.squeeze().permute(1, 2, 0).cpu().numpy()
-            np_ct_latent = (np_ct_latent * 255.).astype(np.uint8)
-            
-            ct_latent = torch.from_numpy(np_ct_latent).permute(2, 0, 1)
 
             np_pet_image = np.load(pet_path, allow_pickle=True)
             np_pet_image = np_pet_image / float(self.pet_max_pixel)
                 
-            np_segmented_map = self.extract_segmented_map(np_pet_image, np_ct_latent)
+            np_segmented_map = self.extract_segmented_map(np_pet_image)
             
             if p:
                 np_segmented_map = np.fliplr(np_segmented_map)
@@ -73,16 +64,15 @@ class SegmentedPETCTDataset(Dataset):
         
         image_name = Path(ct_path).stem
         
-        return ct_latent, segmented_map, image_name
+        return ct_image, segmented_map, image_name
     
-    def extract_segmented_map(self, np_img, np_latent):
+    def extract_segmented_map(self, np_img):
         STATIC_THRESH_HOLD = 100
         
         clone_img = np_img.copy() 
         clone_img = (clone_img * 255.).astype(np.uint8)
         
         _, thresh = cv.threshold(clone_img, STATIC_THRESH_HOLD, 255, 0)
-        thresh = cv.resize(thresh, (np_latent.shape[0], np_latent.shape[1]))
         thresh[thresh > 0] = 1
         
         return thresh

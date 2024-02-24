@@ -1,6 +1,6 @@
 
 data:
-  dataset_name: '214_segmented_conditional_LBBDM_reversed_attenmap'
+  dataset_name: 'conditional_LDM_attenmap'
   dataset_type: 'custom_aligned'
   dataset_config:
     max_pixel_ori: 32767 # Pet 
@@ -45,10 +45,11 @@ model:
         - 4
         condition_key: nocond
         context_dim:
+        dropout : 0.0
         conv_resample: True
         dims: 2
         image_size: 64
-        in_channels: 5
+        in_channels: 7
         model_channels: 128
         num_head_channels: 64
         num_heads: 8
@@ -62,7 +63,7 @@ model:
       max_var: 1.0
       mt_type: linear
       num_timesteps: 1000
-      objective: grad
+      objective: noise
       sample_step: 200
       sample_type: linear
       skip_sample: True
@@ -100,12 +101,12 @@ model:
   latent_before_quant_conv: False
   additional_condition_train_path: /home/PET-CT/thaind/ckpts/Unet/lightning_logs/version_0/samples/train
   additional_condition_val_path: /home/PET-CT/thaind/ckpts/Unet/lightning_logs/version_0/samples/valid
-  # model_load_path: ./results/13_segmented_conditional_LBBDM/LBBDM-f4/checkpoint/last_model.pth
-  model_name: LBBDM-f4
-  model_type: LBBDM
+  # model_load_path: ./results/108_CT2PET/LBBDM-f4/checkpoint/last_model.pth
+  model_name: LDM-f4
+  model_type: LDM
   normalize_latent: False
   only_load_latent_mean_std: False
-  # optim_sche_load_path: ./results/13_segmented_conditional_LBBDM/LBBDM-f4/checkpoint/last_optim_sche.pth
+  # optim_sche_load_path: ./results/108_CT2PET/LBBDM-f4/checkpoint/last_optim_sche.pth
 
 runner: BBDMRunner
 testing: 

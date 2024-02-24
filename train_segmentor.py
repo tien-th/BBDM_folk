@@ -1,4 +1,5 @@
-from datasets.SegmentedPETCTDataset import SegmentedPETCTDataset
+# from datasets.SegmentedPETCTDataset import SegmentedPETCTDataset
+from datasets.SegmentedPETCTDataset1 import SegmentedPETCTDataset
 from model.BrownianBridge.LatentBrownianBridgeModel import LatentBrownianBridgeModel
 import segmentation_models_pytorch as smp
 import yaml
@@ -37,7 +38,7 @@ class SegmentationModel(pl.LightningModule):
 
     def forward(self, image):
         # normalize image here
-        image = (image - self.mean) / self.std
+        # image = (image - self.mean) / self.std
         mask = self.model(image)
         return mask
 
@@ -182,9 +183,10 @@ def main():
     valid_dataloader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=16)
     test_dataloader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=16)
 
-    model_name = "MAnet"
+    model_name = "Unet"
     encoder_name = "resnet34"
-    model = SegmentationModel(model_name, encoder_name, in_channels=3, out_classes=1)
+    # model = SegmentationModel(model_name, encoder_name, in_channels=3, out_classes=1)
+    model = SegmentationModel(model_name, encoder_name, in_channels=1, out_classes=1)
 
     trainer = pl.Trainer(
         accelerator="gpu", 
