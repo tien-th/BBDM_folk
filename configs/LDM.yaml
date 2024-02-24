@@ -1,6 +1,6 @@
 
 data:
-  dataset_name: 'conditional_LDM_attenmap'
+  dataset_name: '224_conditional_LDM_segment_attenmap'
   dataset_type: 'custom_aligned'
   dataset_config:
     max_pixel_ori: 32767 # Pet 
@@ -49,7 +49,7 @@ model:
         conv_resample: True
         dims: 2
         image_size: 64
-        in_channels: 7
+        in_channels: 8
         model_channels: 128
         num_head_channels: 64
         num_heads: 8

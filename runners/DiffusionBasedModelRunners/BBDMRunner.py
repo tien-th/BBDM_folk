@@ -232,6 +232,7 @@ class BBDMRunner(DiffusionBaseRunner):
         im.save(os.path.join(sample_path, 'segmentation_map.png'))
         
         att_map = add_cond[:, 1].unsqueeze(1)
+        # att_map = add_cond
         att_map = ((att_map - att_map.min()) / (att_map.max() - att_map.min())).clamp_(0, 1.)
         image_grid = get_image_grid(att_map, grid_size, to_normal=False)
         im = Image.fromarray(image_grid)

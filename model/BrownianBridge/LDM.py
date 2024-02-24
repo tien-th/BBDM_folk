@@ -70,6 +70,7 @@ class LDM(ConditionalDDPM):
             x_cond_latent = self.encode(x_cond, cond=True)
         add_cond = self.get_additional_condition(x_name, x_cond_latent, stage)
         att_map = self.get_attenuation_map(x_cond, x_cond_latent)
+        # add_cond = att_map
         add_cond = torch.cat([add_cond, att_map], dim=1) 
         context = self.get_cond_stage_context(x_cond)
         return super().forward(x_latent.detach(), x_cond_latent.detach(), add_cond, context)
@@ -147,7 +148,7 @@ class LDM(ConditionalDDPM):
             KVP = 140  # Giá trị kVp
             attenuation_factors = self.attenuationCT_to_511(KVP, HU_map)
             attenuation_factors = np.exp(-attenuation_factors)
-            attenuation_factors = 1 - attenuation_factors
+            # attenuation_factors = 1 - attenuation_factors
             
             transform = transforms.Compose([
                 transforms.Resize((x_cond_latent.shape[2], x_cond_latent.shape[3])),
@@ -216,6 +217,7 @@ class LDM(ConditionalDDPM):
         x_cond_latent = self.encode(x_cond, cond=True)
         add_cond = self.get_additional_condition(x_name, x_cond_latent, stage)
         att_map = self.get_attenuation_map(x_cond, x_cond_latent)
+        # add_cond = att_map
         add_cond = torch.cat([add_cond, att_map], dim=1)
         if sample_mid_step:
             temp, one_step_temp = self.p_sample_loop(y=x_cond_latent,
@@ -237,15 +239,16 @@ class LDM(ConditionalDDPM):
                 with torch.no_grad():
                     out = self.decode(one_step_temp[i].detach(), cond=False)
                 one_step_samples.append(out.to('cpu'))
-            return out_samples, one_step_samples
+            return out_samples, one_step_samples, add_cond
         else:
             temp = self.p_sample_loop(y=x_cond_latent,
+                                      add_cond=add_cond,
                                       context=self.get_cond_stage_context(x_cond),
                                       clip_denoised=clip_denoised,
                                       sample_mid_step=sample_mid_step)
             x_latent = temp
             out = self.decode(x_latent, cond=False)
-            return out
+            return out, add_cond
 
     @torch.no_grad()
     def sample_vqgan(self, x):

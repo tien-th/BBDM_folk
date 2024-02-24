@@ -1,7 +1,8 @@
 # train
 # python3 main.py --config configs/LBBDMxSAGxVq13.yaml --train --sample_at_start --save_top --gpu_ids 3 --resume_model results/LBBDMxSAGxVq13/LBBDM-f4/checkpoint/last_model.pth --resume_optim results/LBBDMxSAGxVq13/LBBDM-f4/checkpoint/last_optim_sche.pth
 #test
-python3 main.py --config configs/conditional_LBBDM.yaml --train --sample_at_start --save_top --gpu_ids 0
+python3 main.py --config configs/LDM.yaml --train --sample_at_start --save_top --gpu_ids 1
+# python3 main.py --config configs/conditional_LBBDM.yaml --train --sample_at_start --save_top --gpu_ids 0
 # python3 main.py --config configs/conditional_LBBDM.yaml --sample_to_eval --gpu_ids 2 --resume_model /home/PET-CT/thaind/BBDM_folk/results/25_segmented_conditional_LBBDM_attenmap_weight_1.5/LBBDM-f4/checkpoint/top_model_epoch_46.pth
 #python3 main.py --config configs/LBBDMxVq13.yaml --train --sample_at_start --save_top --gpu_ids 1 --resume_model results/LBBDMxVq13/LBBDM-f4/checkpoint/latest_model_28.pth --resume_optim results/LBBDMxVq13/LBBDM-f4/checkpoint/latest_optim_sche_28.pth
 # OMP_NUM_THREADS=12 
