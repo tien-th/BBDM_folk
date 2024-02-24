@@ -561,7 +561,7 @@ class BaseRunner(ABC):
                                      batch_size=self.config.data.test.batch_size,
                                      shuffle=False,
                                      num_workers=16,
-                                     drop_last=True)
+                                     drop_last=False)
 
         if self.use_ema:
             self.apply_ema()

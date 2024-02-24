@@ -1,0 +1,1 @@
+python3 main.py --config configs/21_02_LDM.yaml --train --sample_at_start --save_top --gpu_ids 0

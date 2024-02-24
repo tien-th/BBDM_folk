@@ -1,0 +1,1 @@
+CUDA_VISIBLE_DEVICES=2 python3 main.py --config configs/21_02_LDM.yaml --sample_to_eval --gpu_ids 0 --resume_model /workdir/ssd2/nguyent_petct/tiennh/BBDM_folk/results/LDM/LDM-f4/checkpoint/latest_model_132.pth --resume_optim /workdir/ssd2/nguyent_petct/tiennh/BBDM_folk/results/LDM/LDM-f4/checkpoint/latest_optim_sche_132.pth 
