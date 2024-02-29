@@ -225,18 +225,23 @@ class BBDMRunner(DiffusionBaseRunner):
         if stage != 'test':
             self.writer.add_image(f'{stage}_ground_truth', image_grid, self.global_step, dataformats='HWC')
         
-        segment_map = add_cond[:, 0].unsqueeze(1)
+        segment_map = add_cond[:, 3].unsqueeze(1)
         # segment_map = add_cond
         image_grid = get_image_grid(segment_map, grid_size, to_normal=False)
         im = Image.fromarray(image_grid)
         im.save(os.path.join(sample_path, 'segmentation_map.png'))
         
-        att_map = add_cond[:, 1].unsqueeze(1)
+        att_map = add_cond[:, 4].unsqueeze(1)
         # att_map = add_cond
         att_map = ((att_map - att_map.min()) / (att_map.max() - att_map.min())).clamp_(0, 1.)
         image_grid = get_image_grid(att_map, grid_size, to_normal=False)
         im = Image.fromarray(image_grid)
         im.save(os.path.join(sample_path, 'attenuation_map.png'))
+        
+        add_cond = add_cond[:, :3]
+        image_grid = get_image_grid(add_cond.to('cpu'), grid_size, to_normal=self.config.data.dataset_config.to_normal)
+        im = Image.fromarray(image_grid)
+        im.save(os.path.join(sample_path, 'ct_condition.png'))
 
     @torch.no_grad()
     def sample_to_eval(self, net, test_loader, sample_path):

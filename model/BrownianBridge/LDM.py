@@ -70,8 +70,8 @@ class LDM(ConditionalDDPM):
             x_cond_latent = self.encode(x_cond, cond=True)
         add_cond = self.get_additional_condition(x_name, x_cond_latent, stage)
         att_map = self.get_attenuation_map(x_cond, x_cond_latent)
-        # add_cond = att_map
-        add_cond = torch.cat([add_cond, att_map], dim=1) 
+        add_cond = att_map
+        # add_cond = torch.cat([add_cond, att_map], dim=1) 
         context = self.get_cond_stage_context(x_cond)
         return super().forward(x_latent.detach(), x_cond_latent.detach(), add_cond, context)
 
@@ -217,8 +217,8 @@ class LDM(ConditionalDDPM):
         x_cond_latent = self.encode(x_cond, cond=True)
         add_cond = self.get_additional_condition(x_name, x_cond_latent, stage)
         att_map = self.get_attenuation_map(x_cond, x_cond_latent)
-        # add_cond = att_map
-        add_cond = torch.cat([add_cond, att_map], dim=1)
+        add_cond = att_map
+        # add_cond = torch.cat([add_cond, att_map], dim=1)
         if sample_mid_step:
             temp, one_step_temp = self.p_sample_loop(y=x_cond_latent,
                                                      add_cond=add_cond,
