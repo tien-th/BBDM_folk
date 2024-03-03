@@ -1,6 +1,6 @@
 
 data:
-  dataset_name: '227_conditional_LBBDM_CT'
+  dataset_name: '229_conditional_LBBDM_atten'
   dataset_type: 'custom_aligned'
   dataset_config:
     max_pixel_ori: 32767 # Pet 
@@ -43,7 +43,7 @@ model:
         - 2
         - 3
         - 4
-        condition_key: nocond
+        condition_key: SpatialRescaler
         context_dim:
         conv_resample: True
         dims: 2
@@ -67,7 +67,7 @@ model:
       sample_type: linear
       skip_sample: True
   CondStageParams: 
-    in_channels: 3
+    in_channels: 1
     n_stages: 2
     out_channels: 3
   EMA: 
