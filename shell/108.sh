@@ -3,8 +3,8 @@
 #test
 # python3 main.py --config configs/LDM.yaml --train --sample_at_start --save_top --gpu_ids 1
 # python3 main.py --config configs/LDM.yaml --sample_to_eval --gpu_ids 0 --resume_model /home/PET-CT/thaind/BBDM_folk/results/224_conditional_LDM_attenmap/LDM-f4/checkpoint/top_model_epoch_84.pth
-# python3 main.py --config configs/conditional_LBBDM.yaml --train --sample_at_start --save_top --gpu_ids 3
-python3 main.py --config configs/conditional_LBBDM.yaml --sample_to_eval --gpu_ids 2 --resume_model /home/PET-CT/thaind/BBDM_folk/results/229_conditional_LBBDM_atten/LBBDM-f4/checkpoint/top_model_epoch_50.pth
+python3 main.py --seed 345 --config configs/conditional_LBBDM.yaml --train --sample_at_start --save_top --gpu_ids 2
+# python3 main.py --config configs/conditional_LBBDM.yaml --sample_to_eval --gpu_ids 2 --resume_model /home/PET-CT/thaind/BBDM_folk/results/229_conditional_LBBDM_atten/LBBDM-f4/checkpoint/top_model_epoch_50.pth
 #python3 main.py --config configs/LBBDMxVq13.yaml --train --sample_at_start --save_top --gpu_ids 1 --resume_model results/LBBDMxVq13/LBBDM-f4/checkpoint/latest_model_28.pth --resume_optim results/LBBDMxVq13/LBBDM-f4/checkpoint/latest_optim_sche_28.pth
 # OMP_NUM_THREADS=12 
 # -m torch.distributed.run --nnodes=1 --nproc_per_node=8 

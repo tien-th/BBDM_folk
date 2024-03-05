@@ -42,6 +42,7 @@ class LatentBrownianBridgeModel(BrownianBridgeModel):
             self.cond_stage_model = self.vqgan
         elif self.condition_key == 'SpatialRescaler':
             self.cond_stage_model = SpatialRescaler(**vars(model_config.CondStageParams))
+            self.cond_stage_model_1 = SpatialRescaler(**vars(model_config.CondStageParams))
         else:
             raise NotImplementedError
 
@@ -53,7 +54,8 @@ class LatentBrownianBridgeModel(BrownianBridgeModel):
             print("get parameters to optimize: SpatialRescaler, UNet")
             # params = itertools.chain(self.denoise_fn.parameters(), self.cond_stage_model.parameters())
             params = itertools.chain(self.denoise_fn.parameters(), 
-                                     self.cond_stage_model.parameters()
+                                     self.cond_stage_model.parameters(),
+                                     self.cond_stage_model_1.parameters()
                                      )
         else:
             print("get parameters to optimize: UNet")
@@ -64,6 +66,8 @@ class LatentBrownianBridgeModel(BrownianBridgeModel):
         super().apply(weights_init)
         if self.cond_stage_model is not None:
             self.cond_stage_model.apply(weights_init)
+        if self.cond_stage_model_1 is not None:
+            self.cond_stage_model_1.apply(weights_init)
         return self
 
     def forward(self, x, x_name, x_cond, stage, context=None):
@@ -78,14 +82,25 @@ class LatentBrownianBridgeModel(BrownianBridgeModel):
             # add_cond = torch.cat([add_cond, att_map], dim=1) 
             # add_cond = torch.cat([xcond_map, add_cond, att_map], dim=1)
             # add_cond = xcond_map
-            add_cond = att_map
+            # add_cond = att_map
         # context = self.get_cond_stage_context(x_cond)
-        context = self.get_cond_stage_context(add_cond)
+        # context = self.get_cond_stage_context(add_cond)
+        context = torch.cat([self.get_cond_stage_context(add_cond), self.get_cond_stage_context_1(att_map)], dim=1)
+        add_cond = torch.cat([add_cond, att_map], dim=1) 
         return super().forward(x_latent.detach(), x_cond_latent.detach(), add_cond, context)
 
     def get_cond_stage_context(self, x_cond):
         if self.cond_stage_model is not None:
             context = self.cond_stage_model(x_cond)
+            if self.condition_key == 'first_stage':
+                context = context.detach()
+        else:
+            context = None
+        return context
+    
+    def get_cond_stage_context_1(self, x_cond):
+        if self.cond_stage_model_1 is not None:
+            context = self.cond_stage_model_1(x_cond)
             if self.condition_key == 'first_stage':
                 context = context.detach()
         else:
@@ -307,9 +322,11 @@ class LatentBrownianBridgeModel(BrownianBridgeModel):
         # add_cond = torch.cat([add_cond, att_map], dim=1) 
         # add_cond = torch.cat([xcond_map, add_cond, att_map], dim=1)
         # add_cond = xcond_map
-        add_cond = att_map
+        # add_cond = att_map
         # context = self.get_cond_stage_context(x_cond)
-        context = self.get_cond_stage_context(add_cond)
+        # context = self.get_cond_stage_context(add_cond)
+        context = torch.cat([self.get_cond_stage_context(add_cond), self.get_cond_stage_context_1(att_map)], dim=1)
+        add_cond = torch.cat([add_cond, att_map], dim=1) 
         if sample_mid_step:
             temp, one_step_temp = self.p_sample_loop(y=x_cond_latent,
                                                      add_cond=add_cond,

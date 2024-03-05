@@ -1,6 +1,6 @@
 
 data:
-  dataset_name: '229_conditional_LBBDM_atten'
+  dataset_name: '34_conditional_LCPDM_seed345'
   dataset_type: 'custom_aligned'
   dataset_config:
     max_pixel_ori: 32767 # Pet 
@@ -48,7 +48,7 @@ model:
         conv_resample: True
         dims: 2
         image_size: 64
-        in_channels: 6
+        in_channels: 9
         model_channels: 128
         num_head_channels: 64
         num_heads: 8
@@ -99,7 +99,7 @@ model:
       n_embed: 8192
   latent_before_quant_conv: False
   additional_condition_train_path: /home/PET-CT/thaind/ckpts/Unet/lightning_logs/version_0/samples/train
-  additional_condition_val_path: /home/PET-CT/thaind/ckpts/Unet/lightning_logs/version_0/samples/test
+  additional_condition_val_path: /home/PET-CT/thaind/ckpts/Unet/lightning_logs/version_0/samples/valid
   # model_load_path: ./results/13_segmented_conditional_LBBDM/LBBDM-f4/checkpoint/last_model.pth
   model_name: LBBDM-f4
   model_type: LBBDM
