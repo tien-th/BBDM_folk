@@ -25,6 +25,9 @@ def disabled_train(self, mode=True):
 class LatentBrownianBridgeModel(BrownianBridgeModel):
     def __init__(self, model_config):
         super().__init__(model_config)
+        
+        self.class_condition_train_path = model_config.class_condition_train_path
+        self.class_condition_val_path = model_config.class_condition_val_path
 
         self.additional_condition_train_path = model_config.additional_condition_train_path
         self.additional_condition_val_path = model_config.additional_condition_val_path
@@ -38,8 +41,10 @@ class LatentBrownianBridgeModel(BrownianBridgeModel):
         # Condition Stage Model
         if self.condition_key == 'nocond':
             self.cond_stage_model = None
+            self.cond_stage_model_1 = None
         elif self.condition_key == 'first_stage':
             self.cond_stage_model = self.vqgan
+            self.cond_stage_model_1 = self.vqgan
         elif self.condition_key == 'SpatialRescaler':
             self.cond_stage_model = SpatialRescaler(**vars(model_config.CondStageParams))
             self.cond_stage_model_1 = SpatialRescaler(**vars(model_config.CondStageParams))
@@ -78,16 +83,16 @@ class LatentBrownianBridgeModel(BrownianBridgeModel):
             # add_cond = self.get_additional_condition(x, x_cond_latent)
             add_cond = self.get_additional_condition(x_name, x_cond_latent, stage)
             att_map = self.get_attenuation_map(x_cond, x_cond_latent)
-            xcond_map = x_cond_latent.clone()
+            class_cond = self.get_class_condition(x_name, x_cond_latent, stage)
+            # xcond_map = x_cond_latent.clone()
             # add_cond = torch.cat([add_cond, att_map], dim=1) 
             # add_cond = torch.cat([xcond_map, add_cond, att_map], dim=1)
             # add_cond = xcond_map
             # add_cond = att_map
         # context = self.get_cond_stage_context(x_cond)
         # context = self.get_cond_stage_context(add_cond)
-        context = torch.cat([self.get_cond_stage_context(add_cond), self.get_cond_stage_context_1(att_map)], dim=1)
-        add_cond = torch.cat([add_cond, att_map], dim=1) 
-        return super().forward(x_latent.detach(), x_cond_latent.detach(), add_cond, context)
+        # context = torch.cat([self.get_cond_stage_context(add_cond), self.get_cond_stage_context_1(att_map)], dim=1)
+        return super().forward(x_latent.detach(), x_cond_latent.detach(), class_cond, context)
 
     def get_cond_stage_context(self, x_cond):
         if self.cond_stage_model is not None:
@@ -155,6 +160,24 @@ class LatentBrownianBridgeModel(BrownianBridgeModel):
         attenuation_factors = np.interp(reresized.flatten(), vali, inter).reshape(reresized.shape)
 
         return attenuation_factors
+    
+    def get_class_condition(self, x_name, x_cond_latent, stage):
+        class_condition_path = self.class_condition_val_path
+        
+        if stage == 'train':
+            class_condition_path = self.class_condition_train_path
+        
+        conditions = []
+        
+        for i in range(x_cond_latent.shape[0]):
+            with open(os.path.join(class_condition_path, f'{x_name[i]}.txt'), 'r') as f:
+                class_num = int(f.readline().strip())
+            
+            tensor = torch.tensor(class_num, dtype=torch.int)
+    
+            conditions.append(tensor.unsqueeze(0))
+            
+        return torch.cat(conditions, dim=0).to(x_cond_latent.device) 
 
     # def get_additional_condition(self, x_cond, x_cond_latent):
     def get_attenuation_map(self, x_cond, x_cond_latent):  
@@ -318,18 +341,19 @@ class LatentBrownianBridgeModel(BrownianBridgeModel):
         # add_cond = self.get_additional_condition(x, x_cond_latent)
         add_cond = self.get_additional_condition(x_name, x_cond_latent, stage)
         att_map = self.get_attenuation_map(x_cond, x_cond_latent)
-        xcond_map = x_cond_latent.clone()
+        class_cond = self.get_class_condition(x_name, x_cond_latent, stage)
+        # xcond_map = x_cond_latent.clone()
         # add_cond = torch.cat([add_cond, att_map], dim=1) 
         # add_cond = torch.cat([xcond_map, add_cond, att_map], dim=1)
         # add_cond = xcond_map
         # add_cond = att_map
         # context = self.get_cond_stage_context(x_cond)
         # context = self.get_cond_stage_context(add_cond)
-        context = torch.cat([self.get_cond_stage_context(add_cond), self.get_cond_stage_context_1(att_map)], dim=1)
-        add_cond = torch.cat([add_cond, att_map], dim=1) 
+        # context = torch.cat([self.get_cond_stage_context(add_cond), self.get_cond_stage_context_1(att_map)], dim=1)
+        context = None
         if sample_mid_step:
             temp, one_step_temp = self.p_sample_loop(y=x_cond_latent,
-                                                     add_cond=add_cond,
+                                                     class_cond=class_cond,
                                                      context=context,
                                                      clip_denoised=clip_denoised,
                                                      sample_mid_step=sample_mid_step)
@@ -347,16 +371,16 @@ class LatentBrownianBridgeModel(BrownianBridgeModel):
                 with torch.no_grad():
                     out = self.decode(one_step_temp[i].detach(), cond=False)
                 one_step_samples.append(out.to('cpu'))
-            return out_samples, one_step_samples, add_cond
+            return out_samples, one_step_samples, torch.cat([add_cond, att_map], dim=1) 
         else:
             temp = self.p_sample_loop(y=x_cond_latent,
-                                      add_cond=add_cond,
+                                      class_cond=class_cond,
                                       context=context,
                                       clip_denoised=clip_denoised,
                                       sample_mid_step=sample_mid_step)
             x_latent = temp
             out = self.decode(x_latent, cond=False)
-            return out, add_cond
+            return out, torch.cat([add_cond, att_map], dim=1) 
 
     @torch.no_grad()
     def sample_vqgan(self, x):

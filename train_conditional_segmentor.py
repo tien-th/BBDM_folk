@@ -1,17 +1,13 @@
 # from datasets.SegmentedPETCTDataset import SegmentedPETCTDataset
-from datasets.SegmentedPETCTDataset1 import SegmentedPETCTDataset
-from model.BrownianBridge.LatentBrownianBridgeModel import LatentBrownianBridgeModel
+from datasets.SegmentedPETCTDataset1 import ConditionalSegmentedPETCTDataset
 import segmentation_models_pytorch as smp
-import yaml
 import argparse
 import omegaconf 
-import matplotlib.pyplot as plt
 import os
 import torch
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
 from torch.utils.data import DataLoader
-from pprint import pprint
 
 CHECKPOINT_PATH = '/home/PET-CT/thaind/ckpts'
 DATA_PATH = '/home/PET-CT/splited_data_15k'
@@ -19,6 +15,9 @@ IMAGE_SIZE = 256
 CT_MAX = 2047
 PET_MAX = 32767
 BATCH_SIZE = 16
+
+NUM_LABELS = 7
+LABELS_PATH = '/home/PET-CT/thaind/kmeans/samples/kmeans_resnet50'
 
 class SegmentationModel(pl.LightningModule):
 
@@ -43,7 +42,6 @@ class SegmentationModel(pl.LightningModule):
         return mask
 
     def shared_step(self, batch, stage):
-        
         image = batch[0]
 
         # Shape of the image should be (batch_size, num_channels, height, width)
@@ -66,6 +64,9 @@ class SegmentationModel(pl.LightningModule):
 
         # Check that mask values in between 0 and 1, NOT 0 and 255 for binary segmentation
         assert mask.max() <= 1.0 and mask.min() >= 0
+        
+        label_emb = batch[2]
+        image = torch.cat([image, label_emb], dim=1)
 
         logits_mask = self.forward(image)
         
@@ -162,22 +163,18 @@ def get_image_paths_from_dir(fdir):
             image_paths.append(fpath)
     return image_paths
 
-def get_dataset_by_stage(data_path, stage, enc_dec, image_size, ct_max_pixel, pet_max_pixel, flip):
+def get_dataset_by_stage(data_path, stage, labels_path, num_labels, image_size, ct_max_pixel, pet_max_pixel, flip):
     ct_paths = get_image_paths_from_dir(os.path.join(data_path, f'{stage}/A'))
     pet_paths = get_image_paths_from_dir(os.path.join(data_path, f'{stage}/B'))
+    
+    labels_path = os.path.join(labels_path, stage)
 
-    return SegmentedPETCTDataset(ct_paths, pet_paths, enc_dec, image_size, ct_max_pixel, pet_max_pixel, flip)
+    return ConditionalSegmentedPETCTDataset(ct_paths, pet_paths, labels_path, num_labels, image_size, ct_max_pixel, pet_max_pixel, flip)
     
 def main():
-    f = open('/home/PET-CT/thaind/BBDM_folk/configs/Template_CPDM.yaml', 'r')
-    dict_config = yaml.load(f, Loader=yaml.FullLoader)
-
-    nconfig = dict2namespace(dict_config)
-    ltbbdm = LatentBrownianBridgeModel(nconfig.model)
-
-    train_dataset = get_dataset_by_stage(DATA_PATH, 'train', ltbbdm, (IMAGE_SIZE, IMAGE_SIZE), CT_MAX, PET_MAX, True)
-    val_dataset = get_dataset_by_stage(DATA_PATH, 'val', ltbbdm, (IMAGE_SIZE, IMAGE_SIZE), CT_MAX, PET_MAX, False)
-    test_dataset = get_dataset_by_stage(DATA_PATH, 'test', ltbbdm, (IMAGE_SIZE, IMAGE_SIZE), CT_MAX, PET_MAX, False)
+    train_dataset = get_dataset_by_stage(DATA_PATH, 'train', LABELS_PATH, NUM_LABELS, (IMAGE_SIZE, IMAGE_SIZE), CT_MAX, PET_MAX, True)
+    val_dataset = get_dataset_by_stage(DATA_PATH, 'val', LABELS_PATH, NUM_LABELS, (IMAGE_SIZE, IMAGE_SIZE), CT_MAX, PET_MAX, False)
+    test_dataset = get_dataset_by_stage(DATA_PATH, 'test', LABELS_PATH, NUM_LABELS, (IMAGE_SIZE, IMAGE_SIZE), CT_MAX, PET_MAX, False)
 
     train_dataloader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=16)
     valid_dataloader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=16)
@@ -186,7 +183,7 @@ def main():
     model_name = "Unet"
     encoder_name = "resnet50"
     # model = SegmentationModel(model_name, encoder_name, in_channels=3, out_classes=1)
-    model = SegmentationModel(model_name, encoder_name, in_channels=1, out_classes=1)
+    model = SegmentationModel(model_name, encoder_name, in_channels=8, out_classes=1)
 
     trainer = pl.Trainer(
         accelerator="gpu", 

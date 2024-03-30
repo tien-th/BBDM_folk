@@ -85,7 +85,7 @@ class BrownianBridgeModel(nn.Module):
     def get_parameters(self):
         return self.denoise_fn.parameters()
 
-    def forward(self, x, y, add_cond, context=None):
+    def forward(self, x, y, class_cond=None, context=None):
         if self.condition_key == "nocond":
             context = None
         else:
@@ -95,9 +95,9 @@ class BrownianBridgeModel(nn.Module):
         # print(f'true image size: {img_size}x{img_size}')
         assert h == img_size and w == img_size, f'height and width of image must be {img_size}'
         t = torch.randint(0, self.num_timesteps, (b,), device=device).long()
-        return self.p_losses(x, y, add_cond, context, t)
+        return self.p_losses(x, y, class_cond, context, t)
 
-    def p_losses(self, x0, y, add_cond, context, t, noise=None):
+    def p_losses(self, x0, y, class_cond, context, t, noise=None):
         """
         model loss
         :param x0: encoded x_ori, E(x_ori) = x0
@@ -113,9 +113,9 @@ class BrownianBridgeModel(nn.Module):
         x_t, objective = self.q_sample(x0, y, t, noise)
         # print(f'x_t shape: {x0.shape}')    
         
-        # x_t_hat = torch.cat([x_t, add_cond], dim=1) 
+        # x_t_hat = torch.cat([x_t, context], dim=1) 
         # objective_recon = self.denoise_fn(x_t_hat, timesteps=t, context=context)
-        objective_recon = self.denoise_fn(x_t, timesteps=t, context=context)
+        objective_recon = self.denoise_fn(x_t, timesteps=t, y=class_cond, context=context)
 
         if self.loss_type == 'l1':
             # alpha = 1.5
@@ -178,13 +178,13 @@ class BrownianBridgeModel(nn.Module):
         return imgs
 
     @torch.no_grad()
-    def p_sample(self, x_t, y, add_cond, context, i, clip_denoised=False):
+    def p_sample(self, x_t, y, class_cond, context, i, clip_denoised=False):
         b, *_, device = *x_t.shape, x_t.device
         if self.steps[i] == 0:
             t = torch.full((x_t.shape[0],), self.steps[i], device=x_t.device, dtype=torch.long)
-            # x_t_hat = torch.cat([x_t, add_cond], dim=1)
-            # objective_recon = self.denoise_fn(x_t_hat, timesteps=t, context=context)
-            objective_recon = self.denoise_fn(x_t, timesteps=t, context=context)
+            # x_t_hat = torch.cat([x_t, context], dim=1)
+            # objective_recon = self.denoise_fn(x_t_hat, timesteps=t, y=class_cond, context=context)
+            objective_recon = self.denoise_fn(x_t, timesteps=t, y=class_cond, context=context)
             x0_recon = self.predict_x0_from_objective(x_t, y, t, objective_recon=objective_recon)
             if clip_denoised:
                 x0_recon.clamp_(-1., 1.)
@@ -194,8 +194,8 @@ class BrownianBridgeModel(nn.Module):
             n_t = torch.full((x_t.shape[0],), self.steps[i+1], device=x_t.device, dtype=torch.long)
 
             # x_t_hat = torch.cat([x_t, add_cond], dim=1)
-            # objective_recon = self.denoise_fn(x_t_hat, timesteps=t, context=context)
-            objective_recon = self.denoise_fn(x_t, timesteps=t, context=context)
+            # objective_recon = self.denoise_fn(x_t_hat, timesteps=t, y=class_cond, context=context)
+            objective_recon = self.denoise_fn(x_t, timesteps=t, y=class_cond, context=context)
             x0_recon = self.predict_x0_from_objective(x_t, y, t, objective_recon=objective_recon)
             if clip_denoised:
                 x0_recon.clamp_(-1., 1.)
@@ -214,7 +214,7 @@ class BrownianBridgeModel(nn.Module):
             return x_tminus_mean + sigma_t * noise, x0_recon
 
     @torch.no_grad()
-    def p_sample_loop(self, y, add_cond, context=None, clip_denoised=True, sample_mid_step=False):
+    def p_sample_loop(self, y, class_cond=None, context=None, clip_denoised=True, sample_mid_step=False):
         if self.condition_key == "nocond":
             context = None
         else:
@@ -223,16 +223,16 @@ class BrownianBridgeModel(nn.Module):
         if sample_mid_step:
             imgs, one_step_imgs = [y], []
             for i in tqdm(range(len(self.steps)), desc=f'sampling loop time step', total=len(self.steps)):
-                img, x0_recon = self.p_sample(x_t=imgs[-1], y=y, add_cond=add_cond, context=context, i=i, clip_denoised=clip_denoised)
+                img, x0_recon = self.p_sample(x_t=imgs[-1], y=y, class_cond=class_cond, context=context, i=i, clip_denoised=clip_denoised)
                 imgs.append(img)
                 one_step_imgs.append(x0_recon)
             return imgs, one_step_imgs
         else:
             img = y
             for i in tqdm(range(len(self.steps)), desc=f'sampling loop time step', total=len(self.steps)):
-                img, _ = self.p_sample(x_t=img, y=y, add_cond=add_cond, context=context, i=i, clip_denoised=clip_denoised)
+                img, _ = self.p_sample(x_t=img, y=y, class_cond=class_cond, context=context, i=i, clip_denoised=clip_denoised)
             return img
 
     @torch.no_grad()
-    def sample(self, y, context=None, clip_denoised=True, sample_mid_step=False):
-        return self.p_sample_loop(y, context, clip_denoised, sample_mid_step)
+    def sample(self, y, class_cond=None, context=None, clip_denoised=True, sample_mid_step=False):
+        return self.p_sample_loop(y, class_cond, context, clip_denoised, sample_mid_step)

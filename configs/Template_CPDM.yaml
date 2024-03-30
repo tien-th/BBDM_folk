@@ -1,23 +1,23 @@
 
 data:
-  dataset_name: '108_CT2PET_7_27'
+  dataset_name: '317_class_conditional_BBDM_kmeans_segment_seed1234'
   dataset_type: 'custom_aligned'
   dataset_config:
     max_pixel_ori: 32767 # Pet 
     max_pixel_cond: 2047  # CT
-    dataset_path: '/mnt/disk1/mbbank/tien/BBDM/108'
+    dataset_path: /home/PET-CT/splited_data_15k
     image_size: 256
     channels: 1
     to_normal: True 
     flip: False
   train:
-    batch_size: 8
+    batch_size: 16
     shuffle: True
   val:
-    batch_size: 8
+    batch_size: 16
     shuffle: True
   test:
-    batch_size: 8
+    batch_size: 16
     # shuffle: False
 model: 
   BB: 
@@ -40,8 +40,10 @@ model:
         - 8
         channel_mult: !!python/tuple
         - 1
+        - 2
+        - 3
         - 4
-        - 8
+        # condition_key: SpatialRescaler
         condition_key: nocond
         context_dim:
         conv_resample: True
@@ -56,6 +58,7 @@ model:
         resblock_updown: True
         use_scale_shift_norm: True
         use_spatial_transformer: False
+        num_classes: 7
       eta: 1.0
       loss_type: l1
       max_var: 1.0
@@ -66,7 +69,7 @@ model:
       sample_type: linear
       skip_sample: True
   CondStageParams: 
-    in_channels: 3
+    in_channels: 1
     n_stages: 2
     out_channels: 3
   EMA: 
@@ -76,7 +79,7 @@ model:
     use_ema: True
   VQGAN: 
     params:
-      ckpt_path: /mnt/disk1/mbbank/tien/BBDM/vqgan_pretrained/model_vqf4.ckpt
+      ckpt_path: /home/PET-CT/vqgan/vq1_3_69.ckpt
       ddconfig: 
         attn_resolutions: []
         ch: 128
@@ -86,9 +89,10 @@ model:
         - 4
         double_z: False
         dropout: 0.0
-        in_channels: 3
+        in_channels: 1
+        out_ch: 1
         num_res_blocks: 1
-        out_ch: 3
+        
         resolution: 256
         z_channels: 3
       embed_dim: 3
@@ -96,12 +100,16 @@ model:
         target: torch.nn.Identity
       n_embed: 8192
   latent_before_quant_conv: False
-  # model_load_path: ./results/108_CT2PET/LBBDM-f4/checkpoint/last_model.pth
+  class_condition_train_path: /home/PET-CT/thaind/kmeans/samples/kmeans_segmentation/train
+  class_condition_val_path: /home/PET-CT/thaind/kmeans/samples/kmeans_segmentation/test
+  additional_condition_train_path: /home/PET-CT/thaind/ckpts/Unet_resnet50/lightning_logs/version_0/samples/train
+  additional_condition_val_path: /home/PET-CT/thaind/ckpts/Unet_resnet50/lightning_logs/version_0/samples/test
+  # model_load_path: ./results/13_segmented_conditional_LBBDM/LBBDM-f4/checkpoint/last_model.pth
   model_name: LBBDM-f4
   model_type: LBBDM
   normalize_latent: False
   only_load_latent_mean_std: False
-  # optim_sche_load_path: ./results/108_CT2PET/LBBDM-f4/checkpoint/last_optim_sche.pth
+  # optim_sche_load_path: ./results/13_segmented_conditional_LBBDM/LBBDM-f4/checkpoint/last_optim_sche.pth
 
 runner: BBDMRunner
 testing: 

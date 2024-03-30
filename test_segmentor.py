@@ -173,7 +173,7 @@ def get_dataset_by_stage(data_path, stage, enc_dec, image_size, ct_max_pixel, pe
     return SegmentedPETCTDataset(ct_paths, pet_paths, enc_dec, image_size, ct_max_pixel, pet_max_pixel, flip)
     
 def main():
-    f = open('/home/PET-CT/thaind/BBDM_folk/configs/conditional_LBBDM.yaml', 'r')
+    f = open('/home/PET-CT/thaind/BBDM_folk/configs/Template_CPDM.yaml', 'r')
     dict_config = yaml.load(f, Loader=yaml.FullLoader)
 
     nconfig = dict2namespace(dict_config)
@@ -187,14 +187,14 @@ def main():
     valid_dataloader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=16)
     test_dataloader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=16)
 
-    CHECKPOINT_FILE_PATH = CHECKPOINT_PATH + "/Unet/lightning_logs/version_0/checkpoints/epoch=5-step=9000.ckpt"
+    CHECKPOINT_FILE_PATH = CHECKPOINT_PATH + "/Unet_resnet50/lightning_logs/version_0/checkpoints/epoch=5-step=9000.ckpt"
     model_name = "Unet"
-    encoder_name = "resnet34"
+    encoder_name = "resnet50"
     # model = SegmentationModel.load_from_checkpoint(CHECKPOINT_FILE_PATH, arch=model_name, encoder_name=encoder_name, in_channels=3, out_classes=1)
     model = SegmentationModel.load_from_checkpoint(CHECKPOINT_FILE_PATH, arch=model_name, encoder_name=encoder_name, in_channels=1, out_classes=1)
     model.eval()
     
-    SAVE_PATH = CHECKPOINT_PATH + "/Unet/lightning_logs/version_0/samples/test"
+    SAVE_PATH = CHECKPOINT_PATH + "/Unet_resnet50/lightning_logs/version_0/samples/test"
     
     with torch.no_grad():
         for batch in tqdm(test_dataloader):
