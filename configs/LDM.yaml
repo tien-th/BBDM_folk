@@ -1,6 +1,5 @@
-
 data:
-  dataset_name: '45_CPDM_gaussian_noise_blur_segment_dropout_0.3_seed1234'
+  dataset_name: '224_conditional_LDM_attenmap'
   dataset_type: 'custom_aligned'
   dataset_config:
     max_pixel_ori: 32767 # Pet 
@@ -43,13 +42,13 @@ model:
         - 2
         - 3
         - 4
-        condition_key: SpatialRescaler
-        # condition_key: nocond
+        condition_key: nocond
         context_dim:
+        dropout : 0.0
         conv_resample: True
         dims: 2
         image_size: 64
-        in_channels: 9
+        in_channels: 7
         model_channels: 128
         num_head_channels: 64
         num_heads: 8
@@ -58,19 +57,17 @@ model:
         resblock_updown: True
         use_scale_shift_norm: True
         use_spatial_transformer: False
-        # num_classes: 7
-        # dropout: 0.3
       eta: 1.0
       loss_type: l1
       max_var: 1.0
       mt_type: linear
       num_timesteps: 1000
-      objective: grad
+      objective: noise
       sample_step: 200
       sample_type: linear
       skip_sample: True
   CondStageParams: 
-    in_channels: 1
+    in_channels: 3
     n_stages: 2
     out_channels: 3
   EMA: 
@@ -101,16 +98,14 @@ model:
         target: torch.nn.Identity
       n_embed: 8192
   latent_before_quant_conv: False
-  class_condition_train_path: /home/PET-CT/thaind/kmeans/samples/kmeans_segmentation/train
-  class_condition_val_path: /home/PET-CT/thaind/kmeans/samples/kmeans_segmentation/test
-  additional_condition_train_path: /home/PET-CT/thaind/ckpts/Unet_resnet50/lightning_logs/version_0/samples/train
-  additional_condition_val_path: /home/PET-CT/thaind/ckpts/Unet_resnet50/lightning_logs/version_0/samples/test
-  # model_load_path: results/45_CPDM_gaussian_noise_blur_segment_dropout_0.3_seed1234/LBBDM-f4/checkpoint/last_model.pth
-  model_name: LBBDM-f4
-  model_type: LBBDM
+  additional_condition_train_path: /home/PET-CT/thaind/ckpts/Unet/lightning_logs/version_0/samples/train
+  additional_condition_val_path: /home/PET-CT/thaind/ckpts/Unet/lightning_logs/version_0/samples/test
+  # model_load_path: ./results/108_CT2PET/LBBDM-f4/checkpoint/last_model.pth
+  model_name: LDM-f4
+  model_type: LDM
   normalize_latent: False
   only_load_latent_mean_std: False
-  # optim_sche_load_path: results/45_CPDM_gaussian_noise_blur_segment_dropout_0.3_seed1234/LBBDM-f4/checkpoint/last_optim_sche.pth
+  # optim_sche_load_path: ./results/108_CT2PET/LBBDM-f4/checkpoint/last_optim_sche.pth
 
 runner: BBDMRunner
 testing: 

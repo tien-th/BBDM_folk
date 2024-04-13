@@ -167,6 +167,19 @@ class BrownianBridgeModel(nn.Module):
         else:
             raise NotImplementedError
         return x0_recon
+    
+    def predict_noise_from_objective(self, x_t, y, t, objective_recon):
+        if self.objective == 'grad':
+            m_t = extract(self.m_t, t, x_t.shape)
+            var_t = extract(self.variance_t, t, x_t.shape)
+            sigma_t = torch.sqrt(var_t)
+            x0_recon = self.predict_x0_from_objective(x_t, y, t, objective_recon)
+            noise = (objective_recon - m_t * (y - x0_recon)) / sigma_t
+        elif self.objective == 'noise':
+            noise = objective_recon
+        else:
+            raise NotImplementedError
+        return noise
 
     @torch.no_grad()
     def q_sample_loop(self, x0, y):
@@ -197,6 +210,62 @@ class BrownianBridgeModel(nn.Module):
             # objective_recon = self.denoise_fn(x_t_hat, timesteps=t, y=class_cond, context=context)
             objective_recon = self.denoise_fn(x_t, timesteps=t, y=class_cond, context=context)
             x0_recon = self.predict_x0_from_objective(x_t, y, t, objective_recon=objective_recon)
+            if clip_denoised:
+                x0_recon.clamp_(-1., 1.)
+
+            m_t = extract(self.m_t, t, x_t.shape)
+            m_nt = extract(self.m_t, n_t, x_t.shape)
+            var_t = extract(self.variance_t, t, x_t.shape)
+            var_nt = extract(self.variance_t, n_t, x_t.shape)
+            sigma2_t = (var_t - var_nt * (1. - m_t) ** 2 / (1. - m_nt) ** 2) * var_nt / var_t
+            sigma_t = torch.sqrt(sigma2_t) * self.eta
+
+            noise = torch.randn_like(x_t)
+            x_tminus_mean = (1. - m_nt) * x0_recon + m_nt * y + torch.sqrt((var_nt - sigma2_t) / var_t) * \
+                            (x_t - (1. - m_t) * x0_recon - m_t * y)
+
+            return x_tminus_mean + sigma_t * noise, x0_recon
+        
+    @torch.no_grad()
+    def _p_sample(self, x_t, y, class_cond, context, i, clip_denoised=False):
+        w = 0.1
+        b, *_, device = *x_t.shape, x_t.device
+        if self.steps[i] == 0:
+            t = torch.full((x_t.shape[0],), self.steps[i], device=x_t.device, dtype=torch.long)
+
+            uncond_objective_recon = self.denoise_fn(x_t, timesteps=t, y=None, context=torch.zeros_like(context))
+            uncond_noise = self.predict_noise_from_objective(x_t, y, t, objective_recon=uncond_objective_recon)
+            
+            cond_objective_recon = self.denoise_fn(x_t, timesteps=t, y=class_cond, context=context)
+            cond_noise = self.predict_noise_from_objective(x_t, y, t, objective_recon=cond_objective_recon)
+            
+            noise = (1 + w) * cond_noise - w * uncond_noise
+            
+            m_t = extract(self.m_t, t, x_t.shape)
+            var_t = extract(self.variance_t, t, x_t.shape)
+            sigma_t = torch.sqrt(var_t)
+            x0_recon = (x_t - m_t * y - sigma_t * noise) / (1. - m_t)
+            
+            if clip_denoised:
+                x0_recon.clamp_(-1., 1.)
+            return x0_recon, x0_recon
+        else:
+            t = torch.full((x_t.shape[0],), self.steps[i], device=x_t.device, dtype=torch.long)
+            n_t = torch.full((x_t.shape[0],), self.steps[i+1], device=x_t.device, dtype=torch.long)
+
+            uncond_objective_recon = self.denoise_fn(x_t, timesteps=t, y=None, context=context)
+            uncond_noise = self.predict_noise_from_objective(x_t, y, t, objective_recon=uncond_objective_recon)
+            
+            cond_objective_recon = self.denoise_fn(x_t, timesteps=t, y=class_cond, context=context)
+            cond_noise = self.predict_noise_from_objective(x_t, y, t, objective_recon=cond_objective_recon)
+            
+            noise = (1 + w) * cond_noise - w * uncond_noise
+            
+            m_t = extract(self.m_t, t, x_t.shape)
+            var_t = extract(self.variance_t, t, x_t.shape)
+            sigma_t = torch.sqrt(var_t)
+            x0_recon = (x_t - m_t * y - sigma_t * noise) / (1. - m_t)
+            
             if clip_denoised:
                 x0_recon.clamp_(-1., 1.)
 

@@ -10,6 +10,7 @@ from tqdm.autonotebook import tqdm
 from scipy.interpolate import interp1d
 import torchvision.transforms as transforms
 from PIL import Image
+import cv2
 
 from model.BrownianBridge.BrownianBridgeModel import BrownianBridgeModel
 from model.BrownianBridge.base.modules.encoders.modules import SpatialRescaler
@@ -83,7 +84,11 @@ class LatentBrownianBridgeModel(BrownianBridgeModel):
             # add_cond = self.get_additional_condition(x, x_cond_latent)
             add_cond = self.get_additional_condition(x_name, x_cond_latent, stage)
             att_map = self.get_attenuation_map(x_cond, x_cond_latent)
-            class_cond = self.get_class_condition(x_name, x_cond_latent, stage)
+            class_cond = None
+            # class_cond = self.get_class_condition(x_name, x_cond_latent, stage)
+            # p = random.choices([0, 1], weights=[0.2, 0.8], k=1)[0]
+            # if p == 0:
+                # class_cond = None
             # xcond_map = x_cond_latent.clone()
             # add_cond = torch.cat([add_cond, att_map], dim=1) 
             # add_cond = torch.cat([xcond_map, add_cond, att_map], dim=1)
@@ -91,7 +96,10 @@ class LatentBrownianBridgeModel(BrownianBridgeModel):
             # add_cond = att_map
         # context = self.get_cond_stage_context(x_cond)
         # context = self.get_cond_stage_context(add_cond)
-        # context = torch.cat([self.get_cond_stage_context(add_cond), self.get_cond_stage_context_1(att_map)], dim=1)
+        context = torch.cat([self.get_cond_stage_context(add_cond), self.get_cond_stage_context_1(att_map)], dim=1)
+        # p = random.choices([0, 1], weights=[0.2, 0.8], k=1)[0]
+        # if p == 0:
+        #     context = torch.zeros_like(context)
         return super().forward(x_latent.detach(), x_cond_latent.detach(), class_cond, context)
 
     def get_cond_stage_context(self, x_cond):
@@ -219,9 +227,19 @@ class LatentBrownianBridgeModel(BrownianBridgeModel):
         for i in range(x_cond_latent.shape[0]):
             np_cond = np.load(os.path.join(additional_condition_path, f'{x_name[i]}.npy'), allow_pickle=True)
             # np_cond = cv.resize(np_cond, (x_cond_latent.shape[2], x_cond_latent.shape[3]))
-            np_cond[np_cond < 0.5] = 0
-            np_cond[np_cond >= 0.5] = 1
+            # np_cond[np_cond < 0.5] = 0
+            # np_cond[np_cond >= 0.5] = 1
             # np_cond = (np_cond * 0.5).astype(np.float32)
+            
+            # Gaussian Noise
+            sigma_noise = 0.05
+            np_cond = np_cond + np.random.normal(0, sigma_noise + (np_cond * sigma_noise), np_cond.shape)
+
+            # Gaussian Blur
+            kernel_size = (7, 7)  
+            sigma_blur = 1.5
+            np_cond = cv2.GaussianBlur(np_cond, kernel_size, sigma_blur)
+            np_cond = np_cond.astype(np.float32)
             
             tensor = torch.from_numpy(np_cond)
     
@@ -341,7 +359,8 @@ class LatentBrownianBridgeModel(BrownianBridgeModel):
         # add_cond = self.get_additional_condition(x, x_cond_latent)
         add_cond = self.get_additional_condition(x_name, x_cond_latent, stage)
         att_map = self.get_attenuation_map(x_cond, x_cond_latent)
-        class_cond = self.get_class_condition(x_name, x_cond_latent, stage)
+        # class_cond = self.get_class_condition(x_name, x_cond_latent, stage)
+        class_cond = None
         # xcond_map = x_cond_latent.clone()
         # add_cond = torch.cat([add_cond, att_map], dim=1) 
         # add_cond = torch.cat([xcond_map, add_cond, att_map], dim=1)
@@ -349,8 +368,8 @@ class LatentBrownianBridgeModel(BrownianBridgeModel):
         # add_cond = att_map
         # context = self.get_cond_stage_context(x_cond)
         # context = self.get_cond_stage_context(add_cond)
-        # context = torch.cat([self.get_cond_stage_context(add_cond), self.get_cond_stage_context_1(att_map)], dim=1)
-        context = None
+        context = torch.cat([self.get_cond_stage_context(add_cond), self.get_cond_stage_context_1(att_map)], dim=1)
+        # context = None
         if sample_mid_step:
             temp, one_step_temp = self.p_sample_loop(y=x_cond_latent,
                                                      class_cond=class_cond,
