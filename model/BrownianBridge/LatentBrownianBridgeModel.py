@@ -59,9 +59,9 @@ class LatentBrownianBridgeModel(BrownianBridgeModel):
         if self.condition_key == 'SpatialRescaler':
             print("get parameters to optimize: SpatialRescaler, UNet")
             # params = itertools.chain(self.denoise_fn.parameters(), self.cond_stage_model.parameters())
-            params = itertools.chain(self.denoise_fn.parameters(), 
-                                     self.cond_stage_model.parameters(),
-                                     self.cond_stage_model_1.parameters()
+            params = itertools.chain(self.denoise_fn.parameters()
+                                    #  self.cond_stage_model.parameters(),
+                                    #  self.cond_stage_model_1.parameters()
                                      )
         else:
             print("get parameters to optimize: UNet")
@@ -94,8 +94,8 @@ class LatentBrownianBridgeModel(BrownianBridgeModel):
             # add_cond = torch.cat([xcond_map, add_cond, att_map], dim=1)
             # add_cond = xcond_map
             # add_cond = att_map
-        # context = self.get_cond_stage_context(x_cond)
-        context = self.get_cond_stage_context(add_cond)
+        context = self.get_cond_stage_context(x_cond)
+        # context = self.get_cond_stage_context(add_cond)
         # context = torch.cat([self.get_cond_stage_context(add_cond), self.get_cond_stage_context_1(att_map)], dim=1)
         # p = random.choices([0, 1], weights=[0.2, 0.8], k=1)[0]
         # if p == 0:
