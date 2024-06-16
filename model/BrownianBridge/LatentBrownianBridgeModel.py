@@ -66,7 +66,7 @@ class LatentBrownianBridgeModel(BrownianBridgeModel):
         x0_recon = self.decode(x0_recon_latent, cond=False)
         masked_x0_recon = get_mask(x0_recon, self.mask_threshold)
         masked_x = get_mask(x, self.mask_threshold)
-        tot_loss = 0.7 * loss + 0.3 * dice_loss(masked_x0_recon, masked_x)
+        tot_loss = 0.9 * loss + 0.1 * dice_loss(masked_x0_recon, masked_x)
         log_dict["loss"] = tot_loss
         return tot_loss, log_dict
 
