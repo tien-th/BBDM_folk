@@ -1,7 +1,8 @@
 # train
 # python3 main.py --config configs/LBBDMxSAGxVq13.yaml --train --sample_at_start --save_top --gpu_ids 3 --resume_model results/LBBDMxSAGxVq13/LBBDM-f4/checkpoint/last_model.pth --resume_optim results/LBBDMxSAGxVq13/LBBDM-f4/checkpoint/last_optim_sche.pth
 #test
-python3 main.py --config configs/LBBDMxVq13.yaml --train --sample_at_start --save_top --gpu_ids 1 --resume_model results/LBBDMxVq13/LBBDM-f4/checkpoint/latest_model_28.pth --resume_optim results/LBBDMxVq13/LBBDM-f4/checkpoint/latest_optim_sche_28.pth
+# python3 main.py --config configs/non-guidance-CPDM.yaml --train --sample_at_start --save_top --gpu_ids 1
+python3 main.py --config configs/non-guidance-CPDM.yaml --sample_to_eval --gpu_ids 0 --resume_model /home/PET-CT/thaind/BBDM_folk/results/non-guidance-CPDM-0.7-0.3/LBBDM-f4/checkpoint/latest_model_200.pth
 # OMP_NUM_THREADS=12 
 # -m torch.distributed.run --nnodes=1 --nproc_per_node=8 
 # --sample_to_eval

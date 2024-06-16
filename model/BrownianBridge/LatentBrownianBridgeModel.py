@@ -8,7 +8,7 @@ from tqdm.autonotebook import tqdm
 from model.BrownianBridge.BrownianBridgeModel import BrownianBridgeModel
 from model.BrownianBridge.base.modules.encoders.modules import SpatialRescaler
 from model.VQGAN.vqgan import VQModel
-
+from model.utils import get_mask, dice_loss
 
 def disabled_train(self, mode=True):
     """Overwrite model.train with this function to make sure train/eval mode
@@ -20,6 +20,8 @@ class LatentBrownianBridgeModel(BrownianBridgeModel):
     def __init__(self, model_config):
         super().__init__(model_config)
 
+        self.mask_threshold = model_config.mask_threshold
+        
         self.vqgan = VQModel(**vars(model_config.VQGAN.params)).eval()
         self.vqgan.train = disabled_train
         for param in self.vqgan.parameters():
@@ -59,7 +61,14 @@ class LatentBrownianBridgeModel(BrownianBridgeModel):
             x_latent = self.encode(x, cond=False)
             x_cond_latent = self.encode(x_cond, cond=True)
         context = self.get_cond_stage_context(x_cond)
-        return super().forward(x_latent.detach(), x_cond_latent.detach(), context)
+        loss, log_dict = super().forward(x_latent.detach(), x_cond_latent.detach(), context)
+        x0_recon_latent = log_dict["x0_recon"]
+        x0_recon = self.decode(x0_recon_latent, cond=False)
+        masked_x0_recon = get_mask(x0_recon, self.mask_threshold)
+        masked_x = get_mask(x, self.mask_threshold)
+        tot_loss = 0.7 * loss + 0.3 * dice_loss(masked_x0_recon, masked_x)
+        log_dict["loss"] = tot_loss
+        return tot_loss, log_dict
 
     def get_cond_stage_context(self, x_cond):
         if self.cond_stage_model is not None:
