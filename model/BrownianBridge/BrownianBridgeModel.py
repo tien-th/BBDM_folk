@@ -114,8 +114,9 @@ class BrownianBridgeModel(nn.Module):
         # print(f'x_t shape: {x0.shape}')    
         
         # x_t_hat = torch.cat([x_t, context], dim=1) 
+        x_t_hat = torch.cat([x_t, y], dim=1) 
         # objective_recon = self.denoise_fn(x_t_hat, timesteps=t, context=context)
-        objective_recon = self.denoise_fn(x_t, timesteps=t, y=class_cond, context=context)
+        objective_recon = self.denoise_fn(x_t_hat, timesteps=t, y=class_cond, context=context)
 
         if self.loss_type == 'l1':
             # alpha = 1.5
@@ -192,12 +193,17 @@ class BrownianBridgeModel(nn.Module):
 
     @torch.no_grad()
     def p_sample(self, x_t, y, class_cond, context, i, clip_denoised=False):
+        s = 0.3
         b, *_, device = *x_t.shape, x_t.device
         if self.steps[i] == 0:
             t = torch.full((x_t.shape[0],), self.steps[i], device=x_t.device, dtype=torch.long)
             # x_t_hat = torch.cat([x_t, context], dim=1)
+            x_t_hat = torch.cat([x_t, y], dim=1) 
             # objective_recon = self.denoise_fn(x_t_hat, timesteps=t, y=class_cond, context=context)
-            objective_recon = self.denoise_fn(x_t, timesteps=t, y=class_cond, context=context)
+            objective_recon_1 = self.denoise_fn(x_t_hat, timesteps=t, context=context) # e(xt)
+            objective_recon_2 = self.denoise_fn(x_t_hat - class_cond, timesteps=t, context=context) # e(xt*(1-M))
+            objective_recon = objective_recon_2 + (1 + s) * (objective_recon_1 - objective_recon_2)
+            
             x0_recon = self.predict_x0_from_objective(x_t, y, t, objective_recon=objective_recon)
             if clip_denoised:
                 x0_recon.clamp_(-1., 1.)
@@ -207,8 +213,12 @@ class BrownianBridgeModel(nn.Module):
             n_t = torch.full((x_t.shape[0],), self.steps[i+1], device=x_t.device, dtype=torch.long)
 
             # x_t_hat = torch.cat([x_t, add_cond], dim=1)
+            x_t_hat = torch.cat([x_t, y], dim=1) 
             # objective_recon = self.denoise_fn(x_t_hat, timesteps=t, y=class_cond, context=context)
-            objective_recon = self.denoise_fn(x_t, timesteps=t, y=class_cond, context=context)
+            objective_recon_1 = self.denoise_fn(x_t_hat, timesteps=t, context=context) # e(xt)
+            objective_recon_2 = self.denoise_fn(x_t_hat - class_cond, timesteps=t, context=context) # e(xt - ht)
+            objective_recon = objective_recon_2 + (1 + s) * (objective_recon_1 - objective_recon_2)
+            
             x0_recon = self.predict_x0_from_objective(x_t, y, t, objective_recon=objective_recon)
             if clip_denoised:
                 x0_recon.clamp_(-1., 1.)
@@ -283,7 +293,7 @@ class BrownianBridgeModel(nn.Module):
             return x_tminus_mean + sigma_t * noise, x0_recon
 
     @torch.no_grad()
-    def p_sample_loop(self, y, class_cond=None, context=None, clip_denoised=True, sample_mid_step=False):
+    def p_sample_loop(self, y, class_cond=None, context=None, clip_denoised=True, sample_mid_step=False, callback=None):
         if self.condition_key == "nocond":
             context = None
         else:
@@ -295,11 +305,15 @@ class BrownianBridgeModel(nn.Module):
                 img, x0_recon = self.p_sample(x_t=imgs[-1], y=y, class_cond=class_cond, context=context, i=i, clip_denoised=clip_denoised)
                 imgs.append(img)
                 one_step_imgs.append(x0_recon)
+                if callback is not None:
+                    callback(img, x0_recon, self.steps[i])
             return imgs, one_step_imgs
         else:
             img = y
             for i in tqdm(range(len(self.steps)), desc=f'sampling loop time step', total=len(self.steps)):
-                img, _ = self.p_sample(x_t=img, y=y, class_cond=class_cond, context=context, i=i, clip_denoised=clip_denoised)
+                img, x0_recon = self.p_sample(x_t=img, y=y, class_cond=class_cond, context=context, i=i, clip_denoised=clip_denoised)
+                if callback is not None:
+                    callback(img, x0_recon, self.steps[i])
             return img
 
     @torch.no_grad()

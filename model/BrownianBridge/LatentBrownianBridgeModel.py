@@ -59,9 +59,9 @@ class LatentBrownianBridgeModel(BrownianBridgeModel):
         if self.condition_key == 'SpatialRescaler':
             print("get parameters to optimize: SpatialRescaler, UNet")
             # params = itertools.chain(self.denoise_fn.parameters(), self.cond_stage_model.parameters())
-            params = itertools.chain(self.denoise_fn.parameters()
-                                    #  self.cond_stage_model.parameters(),
-                                    #  self.cond_stage_model_1.parameters()
+            params = itertools.chain(self.denoise_fn.parameters(),
+                                     self.cond_stage_model.parameters(),
+                                     self.cond_stage_model_1.parameters()
                                      )
         else:
             print("get parameters to optimize: UNet")
@@ -94,7 +94,7 @@ class LatentBrownianBridgeModel(BrownianBridgeModel):
             # add_cond = torch.cat([xcond_map, add_cond, att_map], dim=1)
             # add_cond = xcond_map
             # add_cond = att_map
-        context = self.get_cond_stage_context(x_cond)
+        # context = self.get_cond_stage_context(x_cond)
         # context = self.get_cond_stage_context(add_cond)
         # context = torch.cat([self.get_cond_stage_context(add_cond), self.get_cond_stage_context_1(att_map)], dim=1)
         # p = random.choices([0, 1], weights=[0.2, 0.8], k=1)[0]
@@ -351,9 +351,13 @@ class LatentBrownianBridgeModel(BrownianBridgeModel):
         out = model.decode(x_latent_quant)
         return out
 
+    def resize_tensor(self, input_tensor, target_size):
+        resized_tensor = torch.nn.functional.interpolate(input_tensor, size=target_size, mode='bilinear', align_corners=False)
+        return resized_tensor
+    
     @torch.no_grad()
     # def sample(self, x_cond, x, stage, clip_denoised=False, sample_mid_step=False):
-    def sample(self, x_cond, x_name, stage, clip_denoised=False, sample_mid_step=False):
+    def sample(self, x_cond, x_name, stage, clip_denoised=False, sample_mid_step=False, callback=None):
         x_cond_latent = self.encode(x_cond, cond=True)
         # add_cond = self.get_additional_condition(x_cond, x_cond_latent)
         # add_cond = self.get_additional_condition(x, x_cond_latent)
@@ -367,15 +371,17 @@ class LatentBrownianBridgeModel(BrownianBridgeModel):
         # add_cond = xcond_map
         # add_cond = att_map
         # context = self.get_cond_stage_context(x_cond)
-        context = self.get_cond_stage_context(add_cond)
+        # context = self.get_cond_stage_context(add_cond)
         # context = torch.cat([self.get_cond_stage_context(add_cond), self.get_cond_stage_context_1(att_map)], dim=1)
-        # context = None
+        class_cond = self.resize_tensor(add_cond, (x_cond_latent.shape[2], x_cond_latent.shape[3]))
+        context = None
+        
         if sample_mid_step:
             temp, one_step_temp = self.p_sample_loop(y=x_cond_latent,
                                                      class_cond=class_cond,
                                                      context=context,
                                                      clip_denoised=clip_denoised,
-                                                     sample_mid_step=sample_mid_step)
+                                                     sample_mid_step=sample_mid_step, callback=callback)
             out_samples = []
             for i in tqdm(range(len(temp)), initial=0, desc="save output sample mid steps", dynamic_ncols=True,
                           smoothing=0.01):
@@ -396,7 +402,7 @@ class LatentBrownianBridgeModel(BrownianBridgeModel):
                                       class_cond=class_cond,
                                       context=context,
                                       clip_denoised=clip_denoised,
-                                      sample_mid_step=sample_mid_step)
+                                      sample_mid_step=sample_mid_step, callback=callback)
             x_latent = temp
             out = self.decode(x_latent, cond=False)
             return out, torch.cat([add_cond, att_map], dim=1) 

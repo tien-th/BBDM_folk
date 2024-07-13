@@ -243,6 +243,10 @@ class ResBlock(TimestepBlock):
         else:
             self.skip_connection = conv_nd(dims, channels, self.out_channels, 1)
 
+        self.in_layers_features = None
+        self.out_layers_features = None
+    
+    
     def forward(self, x, emb):
         """
         Apply the block to a Tensor, conditioned on a timestep embedding.
@@ -262,8 +266,10 @@ class ResBlock(TimestepBlock):
             h = self.h_upd(h)
             x = self.x_upd(x)
             h = in_conv(h)
+            self.in_layers_features = h
         else:
             h = self.in_layers(x)
+            self.in_layers_features = h
         emb_out = self.emb_layers(emb).type(h.dtype)
         while len(emb_out.shape) < len(h.shape):
             emb_out = emb_out[..., None]
@@ -272,9 +278,11 @@ class ResBlock(TimestepBlock):
             scale, shift = th.chunk(emb_out, 2, dim=1)
             h = out_norm(h) * (1 + scale) + shift
             h = out_rest(h)
+            self.out_layers_features = h
         else:
             h = h + emb_out
             h = self.out_layers(h)
+            self.out_layers_features = h
         return self.skip_connection(x) + h
 
 
@@ -727,14 +735,14 @@ class UNetModel(nn.Module):
         :param y: an [N] Tensor of labels, if class-conditional.
         :return: an [N x C x ...] Tensor of outputs.
         """
-        # assert (y is not None) == (
-        #     self.num_classes is not None
-        # ), "must specify y if and only if the model is class-conditional"
+        assert (y is not None) == (
+            self.num_classes is not None
+        ), "must specify y if and only if the model is class-conditional"
         hs = []
         t_emb = timestep_embedding(timesteps, self.model_channels, repeat_only=False)
         emb = self.time_embed(t_emb)
 
-        if y is not None and self.num_classes is not None:
+        if self.num_classes is not None:
             assert y.shape == (x.shape[0],)
             emb = emb + self.label_emb(y)
 

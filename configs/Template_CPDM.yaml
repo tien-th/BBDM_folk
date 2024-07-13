@@ -1,6 +1,6 @@
 
 data:
-  dataset_name: '45_CPDM_gaussian_noise_blur_segment_dropout_0.3_seed1234'
+  dataset_name: 'improved_sampling_BBDM_CT_s=0.3'
   dataset_type: 'custom_aligned'
   dataset_config:
     max_pixel_ori: 32767 # Pet 
@@ -17,7 +17,7 @@ data:
     batch_size: 16
     shuffle: True
   test:
-    batch_size: 16
+    batch_size: 10
     # shuffle: False
 model: 
   BB: 
@@ -43,13 +43,13 @@ model:
         - 2
         - 3
         - 4
-        condition_key: SpatialRescaler
-        # condition_key: nocond
+        # condition_key: SpatialRescaler
+        condition_key: nocond
         context_dim:
         conv_resample: True
         dims: 2
         image_size: 64
-        in_channels: 9
+        in_channels: 6
         model_channels: 128
         num_head_channels: 64
         num_heads: 8
