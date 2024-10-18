@@ -3,20 +3,18 @@ import torchvision.transforms as transforms
 from PIL import Image
 from pathlib import Path
 import numpy as np
-
+import torch
 
 class ImagePathDataset(Dataset):
-    def __init__(self, image_paths, type , image_size=(256, 256), max_pixel = 255.0,  flip=False, to_normal=False):
+    def __init__(self, image_paths, type, image_size=(256, 256), max_pixel=255.0, neighbors=4, flip=False, to_normal=False):
         self.image_size = image_size
         self.image_paths = image_paths
         self._length = len(image_paths)
         self.type = type 
-        
-        # convert max_pixel to float
-        self.max_pixel = float(max_pixel)
+        self.neighbors = neighbors
+        self.max_pixel = float(max_pixel) if max_pixel else None
         self.flip = flip
-        self.to_normal = to_normal # 是否归一化到[-1, 1]
-        
+        self.to_normal = to_normal     
 
     def __len__(self):
         if self.flip:
@@ -32,46 +30,41 @@ class ImagePathDataset(Dataset):
         transform = transforms.Compose([
             transforms.RandomHorizontalFlip(p=p),
             transforms.Resize(self.image_size),
-            transforms.ToTensor()
         ])
-        
-        
 
         img_path = self.image_paths[index]
         image = None
+        
         try:
-            np_image = np.load(img_path, allow_pickle=True)
+            np_image = np.load(img_path, allow_pickle=True).copy()
             
+            if self.type == 'ct':
+                np_image = (np_image - np_image.min()) / (np_image.max() - np_image.min())
+            else: 
+                np_image = np_image / float(self.max_pixel)
+                
+            np_image = (np_image - 0.5) * 2.  
             
-            
-            # if self.type == 'pet': 
-            #     np_image = np.log1p(np_image)
-            np_image = np_image / float(self.max_pixel)
-            
-            image = Image.fromarray(np_image) 
-            
-            image = transform(image) 
+            assert len(np_image.shape) == 3, "Expected 3D image (C, H, W)"
 
+            if self.neighbors:
+                np_image = np.pad(np_image, ((self.neighbors, self.neighbors), (0, 0), (0, 0)), mode='constant', constant_values=-1)
+
+            image_slices = []
+            for i in range(np_image.shape[0]):
+                slice_img = np_image[i].copy() 
+                slice_img = Image.fromarray(slice_img) 
+                slice_img = transform(slice_img)  
+                slice_img = torch.from_numpy(np.array(slice_img))
+                image_slices.append(slice_img.squeeze(0))
+
+            image = torch.stack(image_slices, dim=0)
             
         except BaseException as e:
-            print(img_path)
+            print(img_path, e)
 
-        # if not image.mode == 'RGB':
-        #     image = image.convert('RGB')
-             
-        # image = transform(image)
-    
+        patient_name = Path(img_path).parent.name
         
-        if self.to_normal:
-            if self.type == 'pet':
-                image = (image - 0.5) * 2.
-        
-        # image = image.repeat(3, 1, 1)  # 1 channel to 3 channel 
-            # image.clamp_(-1., 1.)
+        return image, patient_name
 
-        image_name = Path(img_path).stem
-        return image, image_name
-
-
-# class A_dataset(ImagePathDataset) : 
       

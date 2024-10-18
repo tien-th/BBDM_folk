@@ -55,11 +55,29 @@ class LatentBrownianBridgeModel(BrownianBridgeModel):
         return self
 
     def forward(self, x, x_cond, context=None):
+        B, C, H, W = x.shape
+        x_latent_list = []
+        x_cond_latent_list = []
+
         with torch.no_grad():
-            x_latent = self.encode(x, cond=False)
-            x_cond_latent = self.encode(x_cond, cond=True)
-        context = self.get_cond_stage_context(x_cond)
+            for c in range(C):
+                x_channel = x[:, c, :, :].unsqueeze(1)
+                x_latent_channel = self.encode(x_channel, cond=False)
+                x_latent_list.append(x_latent_channel)
+
+            for c in range(C):
+                x_cond_channel = x_cond[:, c, :, :].unsqueeze(1)
+                x_cond_latent_channel = self.encode(x_cond_channel, cond=True)
+                x_cond_latent_list.append(x_cond_latent_channel)
+
+        x_latent = torch.cat(x_latent_list, dim=1)
+        x_cond_latent = torch.cat(x_cond_latent_list, dim=1)
+        
+        # print(x_latent.shape, x_cond_latent.shape)
+        # context = self.get_cond_stage_context(x_cond)
+
         return super().forward(x_latent.detach(), x_cond_latent.detach(), context)
+
 
     def get_cond_stage_context(self, x_cond):
         if self.cond_stage_model is not None:
@@ -101,7 +119,16 @@ class LatentBrownianBridgeModel(BrownianBridgeModel):
 
     @torch.no_grad()
     def sample(self, x_cond, clip_denoised=False, sample_mid_step=False):
-        x_cond_latent = self.encode(x_cond, cond=True)
+        B, C, H, W = x_cond.shape
+        x_cond_latent_list = []
+
+        for c in range(C):
+            x_cond_channel = x_cond[:, c, :, :].unsqueeze(1)
+            x_cond_latent_channel = self.encode(x_cond_channel, cond=True)
+            x_cond_latent_list.append(x_cond_latent_channel)
+                
+        x_cond_latent = torch.cat(x_cond_latent_list, dim=1)
+        
         if sample_mid_step:
             temp, one_step_temp = self.p_sample_loop(y=x_cond_latent,
                                                      context=self.get_cond_stage_context(x_cond),

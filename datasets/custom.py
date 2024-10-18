@@ -6,7 +6,7 @@ import torchvision.transforms as transforms
 
 from Register import Registers
 from datasets.base import ImagePathDataset
-from datasets.utils import get_image_paths_from_dir
+from datasets.utils import get_image_paths_from_dir, get_image_paths
 from PIL import Image
 import cv2
 import os
@@ -35,19 +35,28 @@ class CustomAlignedDataset(Dataset):
     def __init__(self, dataset_config, stage='train'):
         super().__init__()
         self.image_size = (dataset_config.image_size, dataset_config.image_size)
-        image_paths_ori = get_image_paths_from_dir(os.path.join(dataset_config.dataset_path, f'{stage}/B'))
-        image_paths_cond = get_image_paths_from_dir(os.path.join(dataset_config.dataset_path, f'{stage}/A'))
+        image_paths_cond, image_paths_ori = get_image_paths(dataset_config.dataset_path, stage)
+         
         self.flip = dataset_config.flip if stage == 'train' else False
         self.to_normal = dataset_config.to_normal
+        self.neighbors = dataset_config.neighbors
+        self.total_slices = self.neighbors * 2 + 1
 
-        self.imgs_cond = ImagePathDataset(image_paths_cond, 'ct' ,self.image_size, dataset_config.max_pixel_cond, flip=self.flip, to_normal= False) # CT
-        self.imgs_ori  = ImagePathDataset(image_paths_ori, 'pet' ,self.image_size, dataset_config.max_pixel_ori, flip=self.flip, to_normal= True) # PET 
+        self.imgs_cond = ImagePathDataset(image_paths_cond, 'ct', self.image_size, None, dataset_config.neighbors, flip=self.flip, to_normal=self.to_normal) 
+        self.imgs_ori  = ImagePathDataset(image_paths_ori, 'pet', self.image_size, dataset_config.max_pixel_ori, self.neighbors, flip=self.flip, to_normal=self.to_normal) 
 
     def __len__(self):
         return len(self.imgs_ori)
 
     def __getitem__(self, i):
-        return self.imgs_ori[i], self.imgs_cond[i]
+        (imgs_ori, names_ori), (imgs_cond, names_cond) = self.imgs_ori[i], self.imgs_cond[i]
+        
+        start_idx = random.randint(0, imgs_ori.shape[0] - self.total_slices)  
+        
+        imgs_ori = imgs_ori[start_idx:start_idx + self.total_slices]
+        imgs_cond = imgs_cond[start_idx:start_idx + self.total_slices]
+        
+        return (imgs_ori, names_ori), (imgs_cond, names_cond)
 
 
 @Registers.datasets.register_with_name('custom_colorization_LAB')

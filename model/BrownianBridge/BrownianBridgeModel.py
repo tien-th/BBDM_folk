@@ -98,21 +98,20 @@ class BrownianBridgeModel(nn.Module):
         return self.p_losses(x, y, context, t)
 
     def p_losses(self, x0, y, context, t, noise=None):
-        """
-        model loss
-        :param x0: encoded x_ori, E(x_ori) = x0
-        :param y: encoded y_ori, E(y_ori) = y
-        :param y_ori: original source domain image
-        :param t: timestep
-        :param noise: Standard Gaussian Noise
-        :return: loss
-        """
         b, c, h, w = x0.shape
-        noise = default(noise, lambda: torch.randn_like(x0))
 
-        x_t, objective = self.q_sample(x0, y, t, noise)
-        # print(f'x_t shape: {x0.shape}')    
-        objective_recon = self.denoise_fn(x_t, timesteps=t, context=context)
+        mid_slice_idx = ((c // 3) // 2) * 3 
+        # print(mid_slice_idx)
+        x0_mid_slice = x0[:, mid_slice_idx:mid_slice_idx+3, :, :]
+        y_mid_slice = y[:, mid_slice_idx:mid_slice_idx+3, :, :]   
+
+        noise = default(noise, lambda: torch.randn_like(x0_mid_slice))
+
+        x_t, objective = self.q_sample(x0_mid_slice, y_mid_slice, t, noise)
+
+        denoise_input = torch.cat([x_t, y], dim=1)
+
+        objective_recon = self.denoise_fn(denoise_input, timesteps=t, context=context)
 
         if self.loss_type == 'l1':
             recloss = (objective - objective_recon).abs().mean()
@@ -121,11 +120,14 @@ class BrownianBridgeModel(nn.Module):
         else:
             raise NotImplementedError()
 
-        x0_recon = self.predict_x0_from_objective(x_t, y, t, objective_recon)
+        # Dự đoán x0_recon từ objective_recon
+        x0_recon = self.predict_x0_from_objective(x_t, y_mid_slice, t, objective_recon)
+
         log_dict = {
             "loss": recloss,
             "x0_recon": x0_recon
         }
+
         return recloss, log_dict
 
     def q_sample(self, x0, y, t, noise=None):
@@ -167,17 +169,26 @@ class BrownianBridgeModel(nn.Module):
         imgs = [x0]
         for i in tqdm(range(self.num_timesteps), desc='q sampling loop', total=self.num_timesteps):
             t = torch.full((y.shape[0],), i, device=x0.device, dtype=torch.long)
-            img, _ = self.q_sample(x0, y, t)
+            b, c, h, w = x0.shape
+            mid_slice_idx = ((c // 3) // 2) * 3 
+            x0_mid_slice = x0[:, mid_slice_idx:mid_slice_idx+3, :, :]
+            y_mid_slice = y[:, mid_slice_idx:mid_slice_idx+3, :, :]
+            img, _ = self.q_sample(x0_mid_slice, y_mid_slice, t)
             imgs.append(img)
         return imgs
 
     @torch.no_grad()
     def p_sample(self, x_t, y, context, i, clip_denoised=False):
         b, *_, device = *x_t.shape, x_t.device
+        b, c, h, w = y.shape
+        mid_slice_idx = ((c // 3) // 2) * 3 
+        y_mid_slice = y[:, mid_slice_idx:mid_slice_idx+3, :, :]
+        
         if self.steps[i] == 0:
             t = torch.full((x_t.shape[0],), self.steps[i], device=x_t.device, dtype=torch.long)
-            objective_recon = self.denoise_fn(x_t, timesteps=t, context=context)
-            x0_recon = self.predict_x0_from_objective(x_t, y, t, objective_recon=objective_recon)
+            denoise_input = torch.cat([x_t, y], dim=1)
+            objective_recon = self.denoise_fn(denoise_input, timesteps=t, context=context)
+            x0_recon = self.predict_x0_from_objective(x_t, y_mid_slice, t, objective_recon=objective_recon)
             if clip_denoised:
                 x0_recon.clamp_(-1., 1.)
             return x0_recon, x0_recon
@@ -185,8 +196,9 @@ class BrownianBridgeModel(nn.Module):
             t = torch.full((x_t.shape[0],), self.steps[i], device=x_t.device, dtype=torch.long)
             n_t = torch.full((x_t.shape[0],), self.steps[i+1], device=x_t.device, dtype=torch.long)
 
-            objective_recon = self.denoise_fn(x_t, timesteps=t, context=context)
-            x0_recon = self.predict_x0_from_objective(x_t, y, t, objective_recon=objective_recon)
+            denoise_input = torch.cat([x_t, y], dim=1)
+            objective_recon = self.denoise_fn(denoise_input, timesteps=t, context=context)
+            x0_recon = self.predict_x0_from_objective(x_t, y_mid_slice, t, objective_recon=objective_recon)
             if clip_denoised:
                 x0_recon.clamp_(-1., 1.)
 
@@ -198,8 +210,8 @@ class BrownianBridgeModel(nn.Module):
             sigma_t = torch.sqrt(sigma2_t) * self.eta
 
             noise = torch.randn_like(x_t)
-            x_tminus_mean = (1. - m_nt) * x0_recon + m_nt * y + torch.sqrt((var_nt - sigma2_t) / var_t) * \
-                            (x_t - (1. - m_t) * x0_recon - m_t * y)
+            x_tminus_mean = (1. - m_nt) * x0_recon + m_nt * y_mid_slice + torch.sqrt((var_nt - sigma2_t) / var_t) * \
+                            (x_t - (1. - m_t) * x0_recon - m_t * y_mid_slice)
 
             return x_tminus_mean + sigma_t * noise, x0_recon
 
@@ -210,15 +222,19 @@ class BrownianBridgeModel(nn.Module):
         else:
             context = y if context is None else context
 
+        b, c, h, w = y.shape
+        mid_slice_idx = ((c // 3) // 2) * 3 
+        y_mid_slice = y[:, mid_slice_idx:mid_slice_idx+3, :, :]
+
         if sample_mid_step:
-            imgs, one_step_imgs = [y], []
+            imgs, one_step_imgs = [y_mid_slice], []
             for i in tqdm(range(len(self.steps)), desc=f'sampling loop time step', total=len(self.steps)):
                 img, x0_recon = self.p_sample(x_t=imgs[-1], y=y, context=context, i=i, clip_denoised=clip_denoised)
                 imgs.append(img)
                 one_step_imgs.append(x0_recon)
             return imgs, one_step_imgs
         else:
-            img = y
+            img = y_mid_slice
             for i in tqdm(range(len(self.steps)), desc=f'sampling loop time step', total=len(self.steps)):
                 img, _ = self.p_sample(x_t=img, y=y, context=context, i=i, clip_denoised=clip_denoised)
             return img

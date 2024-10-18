@@ -13,6 +13,8 @@ from runners.utils import weights_init, get_optimizer, get_dataset, make_dir, ge
 from tqdm.autonotebook import tqdm
 from torchsummary import summary
 
+import numpy as np
+import torchvision.transforms as transforms
 
 @Registers.runners.register_with_name('BBDMRunner')
 class BBDMRunner(DiffusionBaseRunner):
@@ -99,33 +101,81 @@ class BBDMRunner(DiffusionBaseRunner):
         total_cond_var = None
         max_batch_num = 30000 // self.config.data.train.batch_size
 
-        def calc_mean(batch, total_ori_mean=None, total_cond_mean=None):
+        def calc_mean(batch, total_ori_mean=None, total_cond_mean=None, batch_count=1):
             (x, x_name), (x_cond, x_cond_name) = batch
             x = x.to(self.config.training.device[0])
             x_cond = x_cond.to(self.config.training.device[0])
 
-            x_latent = self.net.encode(x, cond=False, normalize=False)
-            x_cond_latent = self.net.encode(x_cond, cond=True, normalize=False)
-            x_mean = x_latent.mean(axis=[0, 2, 3], keepdim=True)
-            total_ori_mean = x_mean if total_ori_mean is None else x_mean + total_ori_mean
+            B, C, H, W = x.shape
+            x_latent_list = []
+            x_cond_latent_list = []
 
-            x_cond_mean = x_cond_latent.mean(axis=[0, 2, 3], keepdim=True)
-            total_cond_mean = x_cond_mean if total_cond_mean is None else x_cond_mean + total_cond_mean
+            for c in range(C):
+                x_channel = x[:, c, :, :].unsqueeze(1)
+                x_latent_channel = self.net.encode(x_channel, cond=False)
+                x_latent_list.append(x_latent_channel)
+
+            for c in range(C):
+                x_cond_channel = x_cond[:, c, :, :].unsqueeze(1)
+                x_cond_latent_channel = self.net.encode(x_cond_channel, cond=True)
+                x_cond_latent_list.append(x_cond_latent_channel)
+
+            x_latent = torch.cat(x_latent_list, dim=1)
+            x_cond_latent = torch.cat(x_cond_latent_list, dim=1)
+
+            x_mean = x_latent.mean(dim=[0, 2, 3], keepdim=True)
+            x_cond_mean = x_cond_latent.mean(dim=[0, 2, 3], keepdim=True)
+
+            if total_ori_mean is None:
+                total_ori_mean = x_mean
+            else:
+                total_ori_mean = (total_ori_mean * (batch_count - 1) + x_mean) / batch_count
+
+            if total_cond_mean is None:
+                total_cond_mean = x_cond_mean
+            else:
+                total_cond_mean = (total_cond_mean * (batch_count - 1) + x_cond_mean) / batch_count
+
             return total_ori_mean, total_cond_mean
 
-        def calc_var(batch, ori_latent_mean=None, cond_latent_mean=None, total_ori_var=None, total_cond_var=None):
+
+        def calc_var(batch, ori_latent_mean, cond_latent_mean, total_ori_var=None, total_cond_var=None, batch_count=1):
             (x, x_name), (x_cond, x_cond_name) = batch
             x = x.to(self.config.training.device[0])
             x_cond = x_cond.to(self.config.training.device[0])
 
-            x_latent = self.net.encode(x, cond=False, normalize=False)
-            x_cond_latent = self.net.encode(x_cond, cond=True, normalize=False)
-            x_var = ((x_latent - ori_latent_mean) ** 2).mean(axis=[0, 2, 3], keepdim=True)
-            total_ori_var = x_var if total_ori_var is None else x_var + total_ori_var
+            B, C, H, W = x.shape
+            x_latent_list = []
+            x_cond_latent_list = []
 
-            x_cond_var = ((x_cond_latent - cond_latent_mean) ** 2).mean(axis=[0, 2, 3], keepdim=True)
-            total_cond_var = x_cond_var if total_cond_var is None else x_cond_var + total_cond_var
+            for c in range(C):
+                x_channel = x[:, c, :, :].unsqueeze(1)
+                x_latent_channel = self.net.encode(x_channel, cond=False, normalize=False)
+                x_latent_list.append(x_latent_channel)
+
+            for c in range(C):
+                x_cond_channel = x_cond[:, c, :, :].unsqueeze(1)
+                x_cond_latent_channel = self.net.encode(x_cond_channel, cond=True, normalize=False)
+                x_cond_latent_list.append(x_cond_latent_channel)
+
+            x_latent = torch.cat(x_latent_list, dim=1)
+            x_cond_latent = torch.cat(x_cond_latent_list, dim=1)
+
+            x_var = ((x_latent - ori_latent_mean) ** 2).mean(dim=[0, 2, 3], keepdim=True)
+            x_cond_var = ((x_cond_latent - cond_latent_mean) ** 2).mean(dim=[0, 2, 3], keepdim=True)
+
+            if total_ori_var is None:
+                total_ori_var = x_var
+            else:
+                total_ori_var = (total_ori_var * (batch_count - 1) + x_var) / batch_count
+
+            if total_cond_var is None:
+                total_cond_var = x_cond_var
+            else:
+                total_cond_var = (total_cond_var * (batch_count - 1) + x_cond_var) / batch_count
+
             return total_ori_var, total_cond_var
+
 
         print(f"start calculating latent mean")
         batch_count = 0
@@ -210,13 +260,18 @@ class BBDMRunner(DiffusionBaseRunner):
         if stage != 'test':
             self.writer.add_image(f'{stage}_skip_sample', image_grid, self.global_step, dataformats='HWC')
 
-        image_grid = get_image_grid(x_cond.to('cpu'), grid_size, to_normal=self.config.data.dataset_config.to_normal)
+        b, c, h, w = x.shape
+        mid_slice_idx = c // 2
+        x_mid_slice = x[:, mid_slice_idx, :, :].unsqueeze(1)
+        x_cond_mid_slice = x_cond[:, mid_slice_idx, :, :].unsqueeze(1) 
+        
+        image_grid = get_image_grid(x_cond_mid_slice.to('cpu'), grid_size, to_normal=self.config.data.dataset_config.to_normal)
         im = Image.fromarray(image_grid)
         im.save(os.path.join(sample_path, 'condition.png'))
         if stage != 'test':
             self.writer.add_image(f'{stage}_condition', image_grid, self.global_step, dataformats='HWC')
 
-        image_grid = get_image_grid(x.to('cpu'), grid_size, to_normal=self.config.data.dataset_config.to_normal)
+        image_grid = get_image_grid(x_mid_slice.to('cpu'), grid_size, to_normal=self.config.data.dataset_config.to_normal)
         im = Image.fromarray(image_grid)
         im.save(os.path.join(sample_path, 'ground_truth.png'))
         if stage != 'test':
@@ -228,27 +283,83 @@ class BBDMRunner(DiffusionBaseRunner):
         gt_path = make_dir(os.path.join(sample_path, 'ground_truth'))
         result_path = make_dir(os.path.join(sample_path, str(self.config.model.BB.params.sample_step)))
 
-        pbar = tqdm(test_loader, total=len(test_loader), smoothing=0.01)
-        batch_size = self.config.data.test.batch_size
-        to_normal = self.config.data.dataset_config.to_normal
-        sample_num = self.config.testing.sample_num
-        for test_batch in pbar:
-            (x, x_name), (x_cond, x_cond_name) = test_batch
-            x = x.to(self.config.training.device[0])
-            x_cond = x_cond.to(self.config.training.device[0])
+        DATA_PATH = '/home/thaind/splited_3D_CT_PET/test/1.2.840.113619.2.55.3.663376.66.1641784136.362/ct.npy'
+        
+        ct_img = np.load(DATA_PATH, allow_pickle=True)
+        
+        ct_img = (ct_img - ct_img.min()) / (ct_img.max() - ct_img.min())
+        ct_img = (ct_img - 0.5) * 2.
+        
+        neighbors = 4
+        ct_img = np.pad(ct_img, ((neighbors, neighbors), (0, 0), (0, 0)), mode='constant', constant_values=-1)
+        
+        transform = transforms.Resize((256, 256))
+        
+        image_slices = []
+        for i in range(ct_img.shape[0]):
+            slice_img = ct_img[i].copy() 
+            slice_img = Image.fromarray(slice_img) 
+            slice_img = transform(slice_img)  
+            slice_img = torch.from_numpy(np.array(slice_img))
+            image_slices.append(slice_img.squeeze(0))
 
-            for j in range(sample_num):
-                sample = net.sample(x_cond, clip_denoised=False)
-                # sample = net.sample_vqgan(x)
-                for i in range(batch_size):
-                    condition = x_cond[i].detach().clone()
-                    gt = x[i]
-                    result = sample[i]
-                    if j == 0:
-                        save_single_image(condition, condition_path, f'{x_cond_name[i]}.npy', max_pixel= self.config.data.dataset_config.max_pixel_cond,to_normal=False)
-                        save_single_image(gt, gt_path, f'{x_name[i]}.npy', max_pixel= self.config.data.dataset_config.max_pixel_ori , to_normal=True)
-                    if sample_num > 1:
-                        result_path_i = make_dir(os.path.join(result_path, x_name[i]))
-                        save_single_image(result, result_path_i, f'output_{j}.npy', max_pixel= self.config.data.dataset_config.max_pixel_ori ,to_normal=True)
-                    else:
-                        save_single_image(result, result_path, f'{x_name[i]}.npy',max_pixel= self.config.data.dataset_config.max_pixel_ori ,to_normal=True)
+        image = torch.stack(image_slices, dim=0)
+        
+        def get_consecutive_slices(image, center_index, neighbors):
+            start_index = max(center_index - neighbors, 0)
+            end_index = min(center_index + neighbors + 1, image.shape[0])
+            return image[start_index:end_index]
+        
+        predicted_slices = []
+        max_pixel = 65535.
+        
+        for i in range(neighbors, image.shape[0] - neighbors):
+            input_slices = get_consecutive_slices(image, i, neighbors)
+            
+            input_slices = input_slices.to(self.config.training.device[0]).unsqueeze(0)
+
+            predicted_output = net.sample(input_slices, clip_denoised=False)
+            
+            predicted_output = predicted_output.detach().clone() 
+            predicted_output = predicted_output.mul_(0.5).add_(0.5).clamp_(0, 1.) 
+            predicted_output = predicted_output.mul_(max_pixel).add_(0.2).clamp_(0, max_pixel) 
+            predicted_output = predicted_output.permute(0, 2, 3, 1).to('cpu').numpy()  
+            
+            # Thêm kết quả vào danh sách predicted_slices
+            predicted_slices.append(predicted_output.squeeze(0))  # Loại bỏ chiều batch_size để lưu
+
+        # Chuyển danh sách các lát cắt đã dự đoán thành một khối 3D numpy array
+        predicted_volume = np.stack(predicted_slices, axis=0)
+
+        output_file_path = os.path.join(result_path, 'predicted_volume.npy')
+        np.save(output_file_path, predicted_volume)
+        
+        # pbar = tqdm(test_loader, total=len(test_loader), smoothing=0.01)
+        # batch_size = self.config.data.test.batch_size
+        # to_normal = self.config.data.dataset_config.to_normal
+        # sample_num = self.config.testing.sample_num
+        # for test_batch in pbar:
+        #     (x, x_name), (x_cond, x_cond_name) = test_batch
+        #     x = x.to(self.config.training.device[0])
+        #     x_cond = x_cond.to(self.config.training.device[0])
+            
+        #     b, c, h, w = x.shape
+        #     mid_slice_idx = c // 2
+        #     x_mid_slice = x[:, mid_slice_idx, :, :].unsqueeze(1)
+        #     x_cond_mid_slice = x_cond[:, mid_slice_idx, :, :].unsqueeze(1)
+
+        #     for j in range(sample_num):
+        #         sample = net.sample(x_cond, clip_denoised=False)
+        #         # sample = net.sample_vqgan(x)
+        #         for i in range(batch_size):
+        #             condition = x_cond_mid_slice[i].detach().clone()
+        #             gt = x_mid_slice[i]
+        #             result = sample[i]
+        #             if j == 0:
+        #                 save_single_image(condition, condition_path, f'{x_cond_name[i]}/pet.npy', max_pixel= self.config.data.dataset_config.max_pixel_cond,to_normal=False)
+        #                 save_single_image(gt, gt_path, f'{x_name[i]}/pet.npy', max_pixel= self.config.data.dataset_config.max_pixel_ori , to_normal=True)
+        #             if sample_num > 1:
+        #                 result_path_i = make_dir(os.path.join(result_path, x_name[i]))
+        #                 save_single_image(result, result_path_i, f'output_{j}.npy', max_pixel= self.config.data.dataset_config.max_pixel_ori ,to_normal=True)
+        #             else:
+        #                 save_single_image(result, result_path, f'{x_name[i]}/pet.npy',max_pixel= self.config.data.dataset_config.max_pixel_ori ,to_normal=True)
